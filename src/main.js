@@ -43,7 +43,7 @@ const gridHelper = new THREE.GridHelper(12, 12);
 scene.add(gridHelper);
 // Character
 const characterGeometry = new THREE.BoxGeometry(0.5, 0.5, 0.5);
-const characterMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000 });
+const characterMaterial = new THREE.MeshStandardMaterial({ color: 0x0000ff });
 const character = new THREE.Mesh(characterGeometry, characterMaterial);
 character.position.y = 0.25;
 character.castShadow = true;
