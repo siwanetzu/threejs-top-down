@@ -56,7 +56,9 @@ export class Pathfinding {
 
         if (!existingNode) {
           neighbor.g = gScore;
-          neighbor.h = Math.max(Math.abs(neighbor.x - endNode.x), Math.abs(neighbor.y - endNode.y));
+          const dx = Math.abs(neighbor.x - endNode.x);
+          const dy = Math.abs(neighbor.y - endNode.y);
+          neighbor.h = (dx + dy) + (1.4 - 2) * Math.min(dx, dy); // Diagonal distance heuristic
           neighbor.f = neighbor.g + neighbor.h;
           neighbor.parent = currentNode;
           openList.push(neighbor);
