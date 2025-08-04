@@ -25,6 +25,7 @@ This document outlines the technical design and future roadmap for our top-down 
 - **Features:**
   - 8-directional movement.
   - Grid-based calculation.
+  - Diagonal distance heuristic for optimal pathing.
 
 ## 4. Future Roadmap
 This section is for planning future features.

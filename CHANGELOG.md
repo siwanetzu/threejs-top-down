@@ -25,3 +25,6 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 - Corrected a bug in the A* pathfinding algorithm that caused movement to fail occasionally.
 - Addressed an issue where the character would not adhere to the grid during continuous movement.
+- Fixed a bug where single-clicking would not register movement.
+- Corrected the A* heuristic to ensure the most optimal path is always chosen.
+- Fixed a bug where clicking on the edge of the grid would not register movement.
