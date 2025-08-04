@@ -3,6 +3,7 @@ import { Pathfinding } from './Pathfinding.js';
 
 // Scene
 const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x87CEEB);
 
 // Camera
 const aspect = window.innerWidth / window.innerHeight;
@@ -57,57 +58,80 @@ let pathLine = null;
 // Mouse click to move
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
+let isMouseDown = false;
+let directTarget = null;
 
 window.addEventListener('mousedown', (event) => {
-  if (event.button !== 0) return; // Only left click
-
-  mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-  mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-
-  raycaster.setFromCamera(mouse, camera);
-  const intersects = raycaster.intersectObject(floor);
-
-  if (intersects.length > 0) {
-    const clickPoint = intersects[0].point;
-
-    // Convert world coordinates to grid coordinates
-    const startX = Math.floor(character.position.x + grid.width / 2);
-    const startY = Math.floor(character.position.z + grid.height / 2);
-    const endX = Math.floor(clickPoint.x + grid.width / 2);
-    const endY = Math.floor(clickPoint.z + grid.height / 2);
-    
-    // Ensure coordinates are within grid bounds
-    if (endX >= 0 && endX < grid.width && endY >= 0 && endY < grid.height) {
-        const newPath = pathfinding.findPath({ x: startX, y: startY }, { x: endX, y: endY });
-        if (newPath) {
-            path = newPath.map(p => new THREE.Vector3(p.x - grid.width / 2 + 0.5, 0.25, p.y - grid.height / 2 + 0.5));
-            
-            if (pathLine) {
-                scene.remove(pathLine);
-            }
-            const lineMaterial = new THREE.LineBasicMaterial({ color: 0x00FFFF });
-            const lineGeometry = new THREE.BufferGeometry().setFromPoints(path);
-            pathLine = new THREE.Line(lineGeometry, lineMaterial);
-            scene.add(pathLine);
-        }
+    if (event.button !== 0) return;
+    isMouseDown = true;
+    if (pathLine) {
+        scene.remove(pathLine);
+        pathLine = null;
     }
-  }
+    path = [];
 });
 
+window.addEventListener('mousemove', (event) => {
+    if (isMouseDown) {
+        mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+        mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+        raycaster.setFromCamera(mouse, camera);
+        const intersects = raycaster.intersectObject(floor);
+        if (intersects.length > 0) {
+            const clickPoint = intersects[0].point;
+            const gridX = Math.floor(clickPoint.x + grid.width / 2);
+            const gridY = Math.floor(clickPoint.z + grid.height / 2);
+            
+            if (gridX >= 0 && gridX < grid.width && gridY >= 0 && gridY < grid.height) {
+                directTarget = new THREE.Vector3(gridX - grid.width / 2 + 0.5, 0.25, gridY - grid.height / 2 + 0.5);
+            }
+        }
+    }
+});
+
+window.addEventListener('mouseup', (event) => {
+    if (event.button !== 0) return;
+    isMouseDown = false;
+
+    if (directTarget) {
+        const startX = Math.floor(character.position.x + grid.width / 2);
+        const startY = Math.floor(character.position.z + grid.height / 2);
+        const endX = Math.floor(directTarget.x + grid.width / 2);
+        const endY = Math.floor(directTarget.z + grid.height / 2);
+
+        directTarget = null;
+
+        if (endX >= 0 && endX < grid.width && endY >= 0 && endY < grid.height) {
+            const newPath = pathfinding.findPath({ x: startX, y: startY }, { x: endX, y: endY });
+            if (newPath) {
+                path = newPath.map(p => new THREE.Vector3(p.x - grid.width / 2 + 0.5, 0.25, p.y - grid.height / 2 + 0.5));
+                if (pathLine) {
+                    scene.remove(pathLine);
+                }
+                const lineMaterial = new THREE.LineBasicMaterial({ color: 0x00FFFF });
+                const lineGeometry = new THREE.BufferGeometry().setFromPoints(path);
+                pathLine = new THREE.Line(lineGeometry, lineMaterial);
+                scene.add(pathLine);
+            }
+        }
+    }
+});
 
 // Animation loop
 function animate() {
   requestAnimationFrame(animate);
+  const speed = 0.05;
 
-  // Move character along the path
-  if (path.length > 0) {
+  if (isMouseDown && directTarget) {
+    const direction = directTarget.clone().sub(character.position).normalize();
+    character.position.add(direction.multiplyScalar(speed));
+  } else if (path.length > 0) {
     const targetNode = path[0];
     const direction = targetNode.clone().sub(character.position).normalize();
-    const speed = 0.05;
     character.position.add(direction.multiplyScalar(speed));
 
     if (character.position.distanceTo(targetNode) < 0.1) {
-      path.shift(); // Move to the next node
+      path.shift();
       if (path.length === 0 && pathLine) {
         scene.remove(pathLine);
         pathLine = null;
