@@ -79,12 +79,14 @@ window.addEventListener('mousemove', (event) => {
         const intersects = raycaster.intersectObject(floor);
         if (intersects.length > 0) {
             const clickPoint = intersects[0].point;
-            const gridX = Math.floor(clickPoint.x + grid.width / 2);
-            const gridY = Math.floor(clickPoint.z + grid.height / 2);
-            
-            if (gridX >= 0 && gridX < grid.width && gridY >= 0 && gridY < grid.height) {
-                directTarget = new THREE.Vector3(gridX - grid.width / 2 + 0.5, 0.25, gridY - grid.height / 2 + 0.5);
-            }
+            let gridX = Math.floor(clickPoint.x + grid.width / 2);
+            let gridY = Math.floor(clickPoint.z + grid.height / 2);
+
+            // Clamp values to the grid boundaries
+            gridX = Math.max(0, Math.min(gridX, grid.width - 1));
+            gridY = Math.max(0, Math.min(gridY, grid.height - 1));
+
+            directTarget = new THREE.Vector3(gridX - grid.width / 2 + 0.5, 0.25, gridY - grid.height / 2 + 0.5);
         }
     }
 });
@@ -93,26 +95,39 @@ window.addEventListener('mouseup', (event) => {
     if (event.button !== 0) return;
     isMouseDown = false;
 
+    if (!directTarget) {
+        // Handle the case where the mouse is released without moving
+        mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+        mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+        raycaster.setFromCamera(mouse, camera);
+        const intersects = raycaster.intersectObject(floor);
+        if (intersects.length > 0) {
+            directTarget = intersects[0].point;
+        }
+    }
+
     if (directTarget) {
         const startX = Math.floor(character.position.x + grid.width / 2);
         const startY = Math.floor(character.position.z + grid.height / 2);
-        const endX = Math.floor(directTarget.x + grid.width / 2);
-        const endY = Math.floor(directTarget.z + grid.height / 2);
+        let endX = Math.floor(directTarget.x + grid.width / 2);
+        let endY = Math.floor(directTarget.z + grid.height / 2);
+
+        // Clamp values to the grid boundaries
+        endX = Math.max(0, Math.min(endX, grid.width - 1));
+        endY = Math.max(0, Math.min(endY, grid.height - 1));
 
         directTarget = null;
 
-        if (endX >= 0 && endX < grid.width && endY >= 0 && endY < grid.height) {
-            const newPath = pathfinding.findPath({ x: startX, y: startY }, { x: endX, y: endY });
-            if (newPath) {
-                path = newPath.map(p => new THREE.Vector3(p.x - grid.width / 2 + 0.5, 0.25, p.y - grid.height / 2 + 0.5));
-                if (pathLine) {
-                    scene.remove(pathLine);
-                }
-                const lineMaterial = new THREE.LineBasicMaterial({ color: 0x00FFFF });
-                const lineGeometry = new THREE.BufferGeometry().setFromPoints(path);
-                pathLine = new THREE.Line(lineGeometry, lineMaterial);
-                scene.add(pathLine);
+        const newPath = pathfinding.findPath({ x: startX, y: startY }, { x: endX, y: endY });
+        if (newPath) {
+            path = newPath.map(p => new THREE.Vector3(p.x - grid.width / 2 + 0.5, 0.25, p.y - grid.height / 2 + 0.5));
+            if (pathLine) {
+                scene.remove(pathLine);
             }
+            const lineMaterial = new THREE.LineBasicMaterial({ color: 0x00FFFF });
+            const lineGeometry = new THREE.BufferGeometry().setFromPoints(path);
+            pathLine = new THREE.Line(lineGeometry, lineMaterial);
+            scene.add(pathLine);
         }
     }
 });
