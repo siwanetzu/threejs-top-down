@@ -1,6 +1,9 @@
 import * as THREE from 'three';
 import { Pathfinding } from './Pathfinding.js';
 
+// Config
+const speed = 0.1;
+
 // Scene
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87CEEB);
@@ -60,10 +63,12 @@ const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
 let isMouseDown = false;
 let directTarget = null;
+let mouseMoved = false;
 
 window.addEventListener('mousedown', (event) => {
     if (event.button !== 0) return;
     isMouseDown = true;
+    mouseMoved = false;
     if (pathLine) {
         scene.remove(pathLine);
         pathLine = null;
@@ -73,6 +78,7 @@ window.addEventListener('mousedown', (event) => {
 
 window.addEventListener('mousemove', (event) => {
     if (isMouseDown) {
+        mouseMoved = true;
         mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
         mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
         raycaster.setFromCamera(mouse, camera);
@@ -82,7 +88,6 @@ window.addEventListener('mousemove', (event) => {
             let gridX = Math.floor(clickPoint.x + grid.width / 2);
             let gridY = Math.floor(clickPoint.z + grid.height / 2);
 
-            // Clamp values to the grid boundaries
             gridX = Math.max(0, Math.min(gridX, grid.width - 1));
             gridY = Math.max(0, Math.min(gridY, grid.height - 1));
 
@@ -95,61 +100,62 @@ window.addEventListener('mouseup', (event) => {
     if (event.button !== 0) return;
     isMouseDown = false;
 
-    if (!directTarget) {
-        // Handle the case where the mouse is released without moving
+    if (!mouseMoved) {
+        // This was a click, not a drag
         mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
         mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
         raycaster.setFromCamera(mouse, camera);
         const intersects = raycaster.intersectObject(floor);
         if (intersects.length > 0) {
-            directTarget = intersects[0].point;
-        }
-    }
+            const clickPoint = intersects[0].point;
+            const startX = Math.floor(character.position.x + grid.width / 2);
+            const startY = Math.floor(character.position.z + grid.height / 2);
+            let endX = Math.floor(clickPoint.x + grid.width / 2);
+            let endY = Math.floor(clickPoint.z + grid.height / 2);
 
-    if (directTarget) {
-        const startX = Math.floor(character.position.x + grid.width / 2);
-        const startY = Math.floor(character.position.z + grid.height / 2);
-        let endX = Math.floor(directTarget.x + grid.width / 2);
-        let endY = Math.floor(directTarget.z + grid.height / 2);
+            endX = Math.max(0, Math.min(endX, grid.width - 1));
+            endY = Math.max(0, Math.min(endY, grid.height - 1));
 
-        // Clamp values to the grid boundaries
-        endX = Math.max(0, Math.min(endX, grid.width - 1));
-        endY = Math.max(0, Math.min(endY, grid.height - 1));
-
-        directTarget = null;
-
-        const newPath = pathfinding.findPath({ x: startX, y: startY }, { x: endX, y: endY });
-        if (newPath) {
-            path = newPath.map(p => new THREE.Vector3(p.x - grid.width / 2 + 0.5, 0.25, p.y - grid.height / 2 + 0.5));
-            if (pathLine) {
-                scene.remove(pathLine);
+            const newPath = pathfinding.findPath({ x: startX, y: startY }, { x: endX, y: endY });
+            if (newPath) {
+                path = newPath.map(p => new THREE.Vector3(p.x - grid.width / 2 + 0.5, 0.25, p.y - grid.height / 2 + 0.5));
+                if (pathLine) {
+                    scene.remove(pathLine);
+                }
+                const lineMaterial = new THREE.LineBasicMaterial({ color: 0x00FFFF });
+                const lineGeometry = new THREE.BufferGeometry().setFromPoints(path);
+                pathLine = new THREE.Line(lineGeometry, lineMaterial);
+                scene.add(pathLine);
             }
-            const lineMaterial = new THREE.LineBasicMaterial({ color: 0x00FFFF });
-            const lineGeometry = new THREE.BufferGeometry().setFromPoints(path);
-            pathLine = new THREE.Line(lineGeometry, lineMaterial);
-            scene.add(pathLine);
         }
     }
+    directTarget = null;
 });
 
 // Animation loop
 function animate() {
   requestAnimationFrame(animate);
-  const speed = 0.05;
 
+  let currentTarget = null;
   if (isMouseDown && directTarget) {
-    const direction = directTarget.clone().sub(character.position).normalize();
-    character.position.add(direction.multiplyScalar(speed));
+    currentTarget = directTarget;
   } else if (path.length > 0) {
-    const targetNode = path[0];
-    const direction = targetNode.clone().sub(character.position).normalize();
-    character.position.add(direction.multiplyScalar(speed));
+    currentTarget = path[0];
+  }
 
-    if (character.position.distanceTo(targetNode) < 0.1) {
-      path.shift();
-      if (path.length === 0 && pathLine) {
-        scene.remove(pathLine);
-        pathLine = null;
+  if (currentTarget) {
+    const distance = character.position.distanceTo(currentTarget);
+    if (distance > speed) {
+      const direction = currentTarget.clone().sub(character.position).normalize();
+      character.position.add(direction.multiplyScalar(speed));
+    } else {
+      character.position.copy(currentTarget);
+      if (!isMouseDown && path.length > 0) {
+        path.shift();
+        if (path.length === 0 && pathLine) {
+          scene.remove(pathLine);
+          pathLine = null;
+        }
       }
     }
   }
