@@ -15,12 +15,16 @@ All notable changes to this project will be documented in this file.
 - 8-directional movement for pathfinding.
 - A light aqua blue line to visualize the calculated path.
 - Continuous "click-and-drag" movement.
+- A coordinate display for the player's position.
+- A player-following camera.
 
 ### Changed
 - Camera view changed to an angled, isometric-style perspective.
 - Floor color changed to green.
-- Expanded the grid and game logic to support a 12x12 area.
+- Expanded the grid and game logic to support a 24x24 area.
 - Refined continuous movement to always snap to the grid.
+- Character color changed to blue.
+- Movement speed increased to 0.1 and refactored to a global variable.
 
 ### Fixed
 - Corrected a bug in the A* pathfinding algorithm that caused movement to fail occasionally.
@@ -28,3 +32,6 @@ All notable changes to this project will be documented in this file.
 - Fixed a bug where single-clicking would not register movement.
 - Corrected the A* heuristic to ensure the most optimal path is always chosen.
 - Fixed a bug where clicking on the edge of the grid would not register movement.
+- Fixed a critical bug that caused a white screen on startup.
+- Refined the "click" vs. "drag" logic to be more intuitive.
+- Enforced strict grid-based movement and stopping for all movement types.

@@ -9,10 +9,14 @@ This document outlines the technical design and future roadmap for our top-down 
   - **Hold Left Mouse Button:** The character moves continuously towards the grid cell under the cursor.
   - **Release Left Mouse Button:** The character calculates an A* path to the final cursor position and moves there.
 - **Movement Type:** 8-directional, grid-based movement.
+- **Speed:** Configurable `speed` variable (currently `0.1`).
 
 ### 2.2. Camera
-- **Style:** Angled, isometric-style view, similar to classic ARPGs (Diablo, Path of Exile).
+- **Style:** Angled, isometric-style view that follows the player.
 - **Type:** `THREE.OrthographicCamera`.
+
+### 2.3. UI
+- **Coordinate Display:** A real-time display of the player's `x` and `y` coordinates.
 
 ## 3. Technical Implementation
 ### 3.1. Rendering
