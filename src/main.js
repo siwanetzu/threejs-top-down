@@ -7,7 +7,7 @@ scene.background = new THREE.Color(0x87CEEB);
 
 // Camera
 const aspect = window.innerWidth / window.innerHeight;
-const d = 15;
+const d = 10;
 const camera = new THREE.OrthographicCamera(-d * aspect, d * aspect, d, -d, 1, 1000);
 camera.position.set(10, 10, 10); // Angled isometric view
 camera.lookAt(scene.position);
@@ -31,7 +31,7 @@ directionalLight.castShadow = true;
 scene.add(directionalLight);
 
 // Floor
-const floorGeometry = new THREE.PlaneGeometry(12, 12);
+const floorGeometry = new THREE.PlaneGeometry(24, 24);
 const floorMaterial = new THREE.MeshStandardMaterial({ color: 0x228B22 });
 const floor = new THREE.Mesh(floorGeometry, floorMaterial);
 floor.rotation.x = -Math.PI / 2;
@@ -39,7 +39,7 @@ floor.receiveShadow = true;
 scene.add(floor);
 
 // Grid
-const gridHelper = new THREE.GridHelper(12, 12);
+const gridHelper = new THREE.GridHelper(24, 24);
 scene.add(gridHelper);
 // Character
 const characterGeometry = new THREE.BoxGeometry(0.5, 0.5, 0.5);
@@ -50,7 +50,7 @@ character.castShadow = true;
 scene.add(character);
 
 // Pathfinding
-const grid = { width: 12, height: 12 }; // Simplified grid representation
+const grid = { width: 24, height: 24 }; // Simplified grid representation
 const pathfinding = new Pathfinding(grid);
 let path = [];
 let pathLine = null;
@@ -153,6 +153,17 @@ function animate() {
       }
     }
   }
+
+  const coords = {
+    x: Math.round(character.position.x),
+    y: Math.round(character.position.z)
+  };
+  document.getElementById('coordinates').innerText = `x: ${coords.x}, y: ${coords.y}`;
+
+  // Camera follows player
+  camera.position.x = character.position.x + 10;
+  camera.position.z = character.position.z + 10;
+  camera.lookAt(character.position);
 
   renderer.render(scene, camera);
 }

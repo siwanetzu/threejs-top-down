@@ -6,3 +6,11 @@ body {
 canvas {
   display: block;
 }
+
+#coordinates {
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+  color: white;
+  font-family: sans-serif;
+}
