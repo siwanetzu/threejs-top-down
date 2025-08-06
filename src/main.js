@@ -111,7 +111,7 @@ const damageNumbers = [];
 const loader = new GLTFLoader();
 loader.load('assets/Adventurer.glb', (gltf) => {
     character = gltf.scene;
-    character.userData = { damage: 1, health: 100, maxHealth: 100 };
+    character.userData = { damage: 1, health: 100, maxHealth: 100, mana: 50, maxMana: 50 };
     character.scale.set(0.5, 0.5, 0.5);
     character.position.y = 0;
     character.castShadow = true;
@@ -369,6 +369,15 @@ function updateHealthBars() {
         const healthPercentage = (character.userData.health / character.userData.maxHealth) * 100;
         playerHealthFill.style.width = `${healthPercentage}%`;
         playerHealthValue.textContent = `${character.userData.health}/${character.userData.maxHealth}`;
+    }
+
+    if (character) {
+        const playerManaFill = document.querySelector('#player-mana-bar .mana-bar-fill');
+        const playerManaValue = document.getElementById('player-mana-value');
+        
+        const manaPercentage = (character.userData.mana / character.userData.maxMana) * 100;
+        playerManaFill.style.width = `${manaPercentage}%`;
+        playerManaValue.textContent = `${character.userData.mana}/${character.userData.maxMana}`;
     }
 }
 

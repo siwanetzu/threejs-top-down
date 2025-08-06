@@ -14,6 +14,7 @@ All notable changes to this project will be documented in this file.
 - Added a placeholder enemy model.
 - Created a UI system for health bars for both player and enemy.
 - Added floating damage numbers on hit.
+- Added a mana system with a UI bar for the player.
 
 ### Changed
 - Swapped the placeholder enemy cube for a new "Dummy" model.

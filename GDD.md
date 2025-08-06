@@ -41,7 +41,7 @@ This section is for planning future features.
 - [x] Replace the placeholder cube with a 3D model.
 - [x] Implement character animations (idle, run, attack).
 - [x] Add character stats (health, damage).
-- [ ] Add more character stats (mana, etc.).
+- [x] Add more character stats (mana).
 
 ### 4.2. Combat
 - [x] Implement basic attack functionality.
@@ -55,5 +55,25 @@ This section is for planning future features.
 
 ### 4.4. UI
 - [x] Create a user interface to display character information (Health).
-- [ ] Add mana/resource bars.
+- [x] Add mana/resource bars.
 - [ ] Add a main menu and pause screen.
+
+### 4.5. RPG Elements
+- [ ] **Character Stats:**
+  - [ ] HP Regeneration
+  - [ ] MP Regeneration
+  - [ ] Defense Ratio
+  - [ ] Poison Resistance
+  - [ ] Physical Absorption
+  - [ ] Magic Absorption
+  - [ ] Accuracy
+  - [ ] Dodge Chance
+- [ ] **Skills & Abilities:**
+  - [ ] Implement a skill tree or ability system.
+  - [ ] Design and implement various active and passive skills.
+- [ ] **Inventory & Equipment:**
+  - [ ] Create an inventory system for managing items.
+  - [ ] Implement equippable items that modify character stats.
+- [ ] **Experience & Leveling:**
+  - [ ] Grant experience points for defeating enemies.
+  - [ ] Implement a leveling system that improves character stats and unlocks new abilities.
