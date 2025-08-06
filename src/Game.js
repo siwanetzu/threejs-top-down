@@ -152,6 +152,9 @@ export class Game {
             }
 
             if (enemy.model.userData.isDead) {
+                this.scene.remove(enemy.model);
+                this.scene.remove(enemy.hitbox);
+                this.scene.remove(enemy.collider);
                 this.enemies.splice(i, 1);
                 this.enemyHitboxes.splice(i, 1);
                 this.enemyColliders.splice(i, 1);
@@ -162,8 +165,17 @@ export class Game {
                 if (enemy.model.userData.deathFinishTime) {
                     const now = performance.now();
                     const timeSinceDeath = now - enemy.model.userData.deathFinishTime;
-                    if (timeSinceDeath > 4000) { // 4 seconds
-                        const fadeDuration = 1000; // 1 second
+                    if (timeSinceDeath > 4000) {
+                        if (!enemy.model.userData.fadeStarted) {
+                            enemy.model.userData.fadeStarted = true;
+                            enemy.model.traverse(node => {
+                                if (node.isMesh) {
+                                    node.castShadow = false;
+                                }
+                            });
+                        }
+
+                        const fadeDuration = 1000;
                         const opacity = 1 - Math.min((timeSinceDeath - 4000) / fadeDuration, 1);
                         enemy.setOpacity(opacity);
                         if (opacity <= 0) {
