@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.1] - 2025-08-06
+
+### Fixed
+- Corrected an issue where a single click to move would often fail if the mouse moved even slightly between mousedown and mouseup. The input handler now uses a pixel threshold to correctly distinguish between a "click" and a "drag" action.
+
 ## [2.0.0] - 2025-08-06
 
 ### Changed

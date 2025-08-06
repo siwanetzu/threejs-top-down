@@ -5,9 +5,9 @@ This document outlines the technical design and future roadmap for our top-down 
 
 ## 2. Core Gameplay Mechanics
 ### 2.1. Character Movement
-- **Control Scheme:** The player controls the character using the mouse.
-  - **Click to Move:** The character moves to the clicked location.
-  - **Hold to Move:** The character follows the cursor as long as the mouse button is held down.
+- **Control Scheme:** The player controls the character using the mouse. A distinction is made between a "click" and a "drag" based on a small pixel threshold to ensure input is handled intuitively.
+  - **Click to Move:** A single, stationary click sets a destination for the character to move to.
+  - **Hold to Move:** Holding the mouse button down and dragging the cursor will have the character continuously follow the cursor. Releasing the button stops the movement.
 - **Movement Type:** Free-form, not restricted to a grid.
 - **Speed:** Configurable `speed` variable (currently `0.1`).
 
