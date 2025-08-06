@@ -3,7 +3,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 // Config
 const speed = 0.1;
-const enemyHitboxScale = 1.5; // Adjust to make the enemy easier to click
+const enemyHitboxScale = 1; // Adjust to make the enemy easier to click
 
 // Scene
 const scene = new THREE.Scene();
@@ -95,6 +95,7 @@ let activeAction;
 let characterState = 'idle'; // easy state machine for 'idle', 'run'
 let isAttacking = false;
 let useLeftPunch = true;
+let attackQueued = false;
 const clock = new THREE.Clock();
 const damageNumbers = [];
 
@@ -202,6 +203,7 @@ window.addEventListener('mousedown', (event) => {
         if (isEnemyClicked) {
             target = enemy;
             targetPosition = null; // Clear movement target
+            attackQueued = true; // Queue a single attack
         } else if (intersection.object === floor) {
             target = null; // Clear enemy target
             targetPosition = intersection.point;
@@ -215,6 +217,8 @@ window.addEventListener('mousedown', (event) => {
 window.addEventListener('mousemove', (event) => {
     if (isMouseDown && !isAttacking) {
         mouseMoved = true;
+        target = null; // Cancel enemy targeting if mouse is dragged
+        attackQueued = false; // Also cancel queued attack
         mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
         mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
 
@@ -319,50 +323,61 @@ function animate() {
       mixer.update(delta);
   }
 
-  if (character && target && !isAttacking) {
-    if (!isInAttackRange()) { // Move until within attack range
-      setAction('run');
-      const direction = target.position.clone().sub(character.position).normalize();
-      const nextPosition = character.position.clone().add(direction.clone().multiplyScalar(speed));
-      if (!isCollidingWithEnemy(nextPosition)) {
-        character.position.add(direction.multiplyScalar(speed));
-      }
+  if (character) {
+    let movingToEnemy = false;
+    let movingToPoint = false;
 
-      faceTarget(target);
-    } else {
-      // In attack range, so attack.
-      isAttacking = true;
-      faceTarget(target);
-      if (useLeftPunch) {
-        setAction('punch_left');
-      } else {
-        setAction('punch_right');
-      }
-      useLeftPunch = !useLeftPunch;
+    // 1. Handle enemy targeting
+    if (target) {
+        if (isInAttackRange()) {
+            faceTarget(target);
+            // Attack if mouse is held down OR a single attack was queued
+            if (!isAttacking && (attackQueued || isMouseDown)) {
+                isAttacking = true;
+                attackQueued = false; // Consume the queue
+                if (useLeftPunch) {
+                    setAction('punch_left');
+                } else {
+                    setAction('punch_right');
+                }
+                useLeftPunch = !useLeftPunch;
+            }
+        } else {
+            // Move towards enemy
+            movingToEnemy = true;
+            const direction = target.position.clone().sub(character.position).normalize();
+            const nextPosition = character.position.clone().add(direction.clone().multiplyScalar(speed));
+            if (!isCollidingWithEnemy(nextPosition)) {
+                character.position.add(direction.multiplyScalar(speed));
+            }
+            faceTarget(target);
+        }
     }
-  } else if (character && targetPosition && !isAttacking) {
-    const distance = character.position.distanceTo(targetPosition);
-    if (distance > speed) {
-      setAction('run');
-      const direction = targetPosition.clone().sub(character.position).normalize();
-      const nextPosition = character.position.clone().add(direction.clone().multiplyScalar(speed));
+    // 2. Handle movement to a point
+    else if (targetPosition) {
+        const distance = character.position.distanceTo(targetPosition);
+        if (distance > speed) {
+            movingToPoint = true;
+            const direction = targetPosition.clone().sub(character.position).normalize();
+            const nextPosition = character.position.clone().add(direction.clone().multiplyScalar(speed));
+            if (!isCollidingWithEnemy(nextPosition)) {
+                character.position.add(direction.multiplyScalar(speed));
+            }
+            const angle = Math.atan2(direction.x, direction.z);
+            targetRotation = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), angle);
+        } else {
+            character.position.copy(targetPosition);
+            targetPosition = null;
+        }
+    }
 
-      if (!isCollidingWithEnemy(nextPosition)) {
-          character.position.add(direction.multiplyScalar(speed));
-      }
-
-      // Rotate character to face direction of movement
-      const angle = Math.atan2(direction.x, direction.z);
-      targetRotation = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), angle);
-    } else {
-      character.position.copy(targetPosition);
-      targetPosition = null;
+    // 3. Set animation state
+    if (movingToEnemy || movingToPoint) {
+        setAction('run');
+    } else if (!isAttacking) {
+        setAction('idle');
     }
-  } else {
-    if (!isAttacking) {
-      setAction('idle');
-    }
-  }
+}
 
   if (character && targetRotation) {
     character.quaternion.slerp(targetRotation, 0.1);
