@@ -2,8 +2,9 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 export class Player {
-    constructor(scene) {
+    constructor(scene, uiManager) {
         this.scene = scene;
+        this.uiManager = uiManager;
         this.model = null;
         this.mixer = null;
         this.actions = {};
@@ -98,7 +99,9 @@ export class Player {
         this.useLeftPunch = !this.useLeftPunch;
 
         if (target && target.userData) {
-            target.userData.health -= this.model.userData.damage;
+            const damage = this.model.userData.damage;
+            target.userData.health -= damage;
+            this.uiManager.showDamageNumber(damage, target.position, target);
             console.log(`${target.userData.name} health: ${target.userData.health}`);
         }
     }

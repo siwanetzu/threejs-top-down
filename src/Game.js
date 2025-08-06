@@ -11,11 +11,11 @@ export class Game {
         this.camera = this._createCamera();
         this.renderer = this._createRenderer();
         this.clock = new THREE.Clock();
-        this.player = new Player(this.scene);
+        this.uiManager = new UIManager();
+        this.player = new Player(this.scene, this.uiManager);
         this.enemies = [];
         this.enemyHitboxes = [];
         this.enemyColliders = [];
-        this.uiManager = new UIManager();
         this.inputHandler = new InputHandler(this);
         this.hoveredTarget = null;
 
