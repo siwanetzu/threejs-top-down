@@ -33,7 +33,7 @@ canvas {
     position: absolute;
     color: red;
     font-weight: bold;
-    font-size: 28px;
+    font-size: 48px;
     text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
     animation: floatUp 1s ease-out forwards;
     transform: translateX(-50%);

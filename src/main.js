@@ -50,8 +50,9 @@ scene.add(floor);
 // Enemy
 const enemies = [];
 const enemyHitboxes = [];
+const enemyColliders = [];
 
-function createEnemy(modelPath, name, position, stats) {
+function createEnemy(modelPath, name, position, stats, hitboxScale) {
     return new Promise((resolve, reject) => {
         const loader = new GLTFLoader();
         loader.load(modelPath, (gltf) => {
@@ -110,23 +111,29 @@ function createEnemy(modelPath, name, position, stats) {
             newEnemy.userData.mixer = mixer;
 
             const enemyBox = new THREE.Box3().setFromObject(newEnemy);
-            const boxSize = enemyBox.getSize(new THREE.Vector3());
-            const hitboxScale = stats.hitboxScale || 1;
-            boxSize.x *= hitboxScale;
-            boxSize.z *= hitboxScale;
-            boxSize.y *= 2;
-
-            const hitboxGeometry = new THREE.BoxGeometry(boxSize.x, boxSize.y, boxSize.z);
+            const hoverBoxSize = enemyBox.getSize(new THREE.Vector3()).multiply(hitboxScale);
+            const hitboxGeometry = new THREE.BoxGeometry(hoverBoxSize.x, hoverBoxSize.y, hoverBoxSize.z);
             const hitboxMaterial = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
             const hitbox = new THREE.Mesh(hitboxGeometry, hitboxMaterial);
             hitbox.userData.isEnemyHitbox = true;
             hitbox.userData.enemy = newEnemy;
             hitbox.position.copy(newEnemy.position);
-            hitbox.position.y += boxSize.y / 2;
+            hitbox.position.y += hoverBoxSize.y / 2;
             scene.add(hitbox);
+            
+            const colliderBoxSize = enemyBox.getSize(new THREE.Vector3()).multiply(new THREE.Vector3(1, 2, 1));
+            const colliderGeometry = new THREE.BoxGeometry(colliderBoxSize.x, colliderBoxSize.y, colliderBoxSize.z);
+            const colliderMaterial = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
+            const collider = new THREE.Mesh(colliderGeometry, colliderMaterial);
+            collider.userData.isEnemyCollider = true;
+            collider.userData.enemy = newEnemy;
+            collider.position.copy(newEnemy.position);
+            collider.position.y += colliderBoxSize.y / 2;
+            scene.add(collider);
 
             enemies.push(newEnemy);
             enemyHitboxes.push(hitbox);
+            enemyColliders.push(collider);
             resolve();
         }, undefined, reject);
     });
@@ -213,13 +220,15 @@ function loadCharacter() {
                         if (target.userData.health <= 0 && !target.userData.dying) {
                             target.userData.dying = true;
                             setEnemyAction(target, 'death');
-                            const enemyHitbox = enemyHitboxes.find(hb => hb.userData.enemy === target);
-                            if (enemyHitbox) {
-                                const index = enemyHitboxes.indexOf(enemyHitbox);
-                                if (index > -1) {
-                                    enemyHitboxes.splice(index, 1);
-                                }
-                                scene.remove(enemyHitbox);
+                            const hitboxIndex = enemyHitboxes.findIndex(hb => hb.userData.enemy === target);
+                            if (hitboxIndex > -1) {
+                                scene.remove(enemyHitboxes[hitboxIndex]);
+                                enemyHitboxes.splice(hitboxIndex, 1);
+                            }
+                            const colliderIndex = enemyColliders.findIndex(c => c.userData.enemy === target);
+                            if (colliderIndex > -1) {
+                                scene.remove(enemyColliders[colliderIndex]);
+                                enemyColliders.splice(colliderIndex, 1);
                             }
                             target = null; // Stop targeting the dying enemy
                         }
@@ -265,6 +274,7 @@ window.addEventListener('mousedown', (event) => {
             attackQueued = true; // Queue a single attack
         } else if (intersection.object === floor) {
             target = null; // Clear enemy target
+            attackQueued = false; // Cancel any queued attack
             targetPosition = intersection.point;
             if (character) {
                 targetPosition.y = character.position.y; // Keep character on the same plane
@@ -374,7 +384,7 @@ function isCollidingWithEnemy(nextPosition) {
     const movement = nextPosition.clone().sub(character.position);
     nextCharacterBoundingBox.translate(movement);
 
-    for (const hitbox of enemyHitboxes) {
+    for (const hitbox of enemyColliders) {
         // Don't check collision with the dying enemy or the current target
         if (hitbox.userData.enemy.userData.dying || hitbox.userData.enemy === target) {
             continue;
@@ -412,7 +422,7 @@ function isInAttackRange() {
     if (!character || !target) return false;
 
     const attackRangePadding = 1.5;
-    const enemyHitbox = enemyHitboxes.find(hb => hb.userData.enemy === target);
+    const enemyHitbox = enemyColliders.find(hb => hb.userData.enemy === target);
     if (!enemyHitbox) return false;
     const enemyBoundingBox = new THREE.Box3().setFromObject(enemyHitbox);
     const characterBoundingBox = new THREE.Box3().setFromObject(character);
@@ -470,9 +480,8 @@ async function init() {
         attackSpeed: 2000, // ms
         chaseRange: 5,
         attackRange: 1.5,
-        xp: 10,
-        hitboxScale: 2
-    });
+        xp: 10
+    }, new THREE.Vector3(4, 10, 4));
     const dummyPromise = createEnemy('assets/Dummy.glb', 'Dummy', new THREE.Vector3(5, 0, 5), {
         scale: 1,
         health: 100,
@@ -481,9 +490,8 @@ async function init() {
         attackSpeed: 0,
         chaseRange: 0,
         attackRange: 0,
-        xp: 0,
-        hitboxScale: 1
-    });
+        xp: 0
+    }, new THREE.Vector3(1, 2, 1));
 
     try {
         await Promise.all([characterPromise, slimePromise, dummyPromise]);
@@ -527,6 +535,8 @@ function animate() {
                     setAction('punch_right');
                 }
                 useLeftPunch = !useLeftPunch;
+            } else if (isMouseDown) {
+                attackQueued = true;
             }
         } else if (target) {
             // Move towards enemy only if it's the active target
@@ -554,6 +564,7 @@ function animate() {
         } else {
             character.position.copy(targetPosition);
             targetPosition = null;
+            setAction('idle');
         }
     }
 
