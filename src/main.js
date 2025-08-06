@@ -3,6 +3,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 // Config
 const speed = 0.1;
+const enemyHitboxScale = 1.5; // Adjust to make the enemy easier to click
 
 // Scene
 const scene = new THREE.Scene();
@@ -50,6 +51,7 @@ scene.add(floor);
 
 // Enemy
 let enemy;
+let enemyHitbox;
 const enemyLoader = new GLTFLoader();
 enemyLoader.load('assets/Dummy.glb', (gltf) => {
     enemy = gltf.scene;
@@ -63,6 +65,26 @@ enemyLoader.load('assets/Dummy.glb', (gltf) => {
         }
     });
     scene.add(enemy);
+
+    // Create a larger, invisible hitbox for better click detection
+    const enemyBox = new THREE.Box3().setFromObject(enemy);
+    const boxSize = enemyBox.getSize(new THREE.Vector3());
+    const boxCenter = enemyBox.getCenter(new THREE.Vector3());
+
+    // Make hitbox larger on the horizontal plane
+    boxSize.x *= enemyHitboxScale;
+    boxSize.z *= enemyHitboxScale;
+
+    const hitboxGeometry = new THREE.BoxGeometry(boxSize.x, boxSize.y, boxSize.z);
+    const hitboxMaterial = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
+    enemyHitbox = new THREE.Mesh(hitboxGeometry, hitboxMaterial);
+    enemyHitbox.userData.isEnemyHitbox = true;
+
+
+    // Position the hitbox to be centered on the enemy model
+    enemyHitbox.position.copy(enemy.position);
+    
+    scene.add(enemyHitbox);
 });
 
 // Main character
@@ -71,8 +93,10 @@ let mixer;
 let actions = {};
 let activeAction;
 let characterState = 'idle'; // easy state machine for 'idle', 'run'
+let isAttacking = false;
 let useLeftPunch = true;
 const clock = new THREE.Clock();
+const damageNumbers = [];
 
 // Loading the character model from the glb file
 const loader = new GLTFLoader();
@@ -127,6 +151,7 @@ loader.load('assets/Adventurer.glb', (gltf) => {
     }
     mixer.addEventListener('finished', e => {
         if (e.action === actions.punch_left || e.action === actions.punch_right) {
+            isAttacking = false;
             characterState = 'idle';
             if (target && target.userData.health > 0) {
                 target.userData.health -= character.userData.damage;
@@ -134,6 +159,7 @@ loader.load('assets/Adventurer.glb', (gltf) => {
 
                 if (target.userData.health <= 0) {
                     scene.remove(target);
+                    scene.remove(enemyHitbox);
                     target = null;
                 }
             }
@@ -162,20 +188,15 @@ window.addEventListener('mousedown', (event) => {
     mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
 
     raycaster.setFromCamera(mouse, camera);
-    if (!enemy) return;
-    const intersects = raycaster.intersectObjects([enemy, floor], true);
+    if (!enemy || !enemyHitbox) return;
+    const intersects = raycaster.intersectObjects([enemyHitbox, floor], true);
 
     if (intersects.length > 0) {
         const intersection = intersects[0];
         
         let isEnemyClicked = false;
-        let currentObject = intersection.object;
-        while (currentObject) {
-            if (currentObject === enemy) {
-                isEnemyClicked = true;
-                break;
-            }
-            currentObject = currentObject.parent;
+        if (intersection.object.userData.isEnemyHitbox) {
+            isEnemyClicked = true;
         }
 
         if (isEnemyClicked) {
@@ -192,7 +213,7 @@ window.addEventListener('mousedown', (event) => {
 });
 
 window.addEventListener('mousemove', (event) => {
-    if (isMouseDown) {
+    if (isMouseDown && !isAttacking) {
         mouseMoved = true;
         mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
         mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
@@ -248,9 +269,9 @@ function faceTarget(target) {
 }
 
 function isCollidingWithEnemy(nextPosition) {
-    if (!enemy) return false;
+    if (!enemy || !enemyHitbox) return false;
 
-    const enemyBoundingBox = new THREE.Box3().setFromObject(enemy);
+    const enemyBoundingBox = new THREE.Box3().setFromObject(enemyHitbox);
     const characterBoundingBox = new THREE.Box3().setFromObject(character);
 
     // Predict character's next bounding box
@@ -263,25 +284,24 @@ function isCollidingWithEnemy(nextPosition) {
 
 function showDamageNumber(damage, position) {
     const container = document.getElementById('damage-container');
+    if (!container) return;
     const damageElement = document.createElement('div');
     damageElement.textContent = damage;
     damageElement.classList.add('damage-number');
     container.appendChild(damageElement);
 
-    const screenPosition = position.clone().project(camera);
-    damageElement.style.left = `${(screenPosition.x + 1) / 2 * window.innerWidth}px`;
-    damageElement.style.top = `${(-screenPosition.y + 1) / 2 * window.innerHeight}px`;
-
-    setTimeout(() => {
-        container.removeChild(damageElement);
-    }, 1000);
+    damageNumbers.push({
+        element: damageElement,
+        position: position.clone(),
+        startTime: clock.getElapsedTime()
+    });
 }
 
 function isInAttackRange() {
     if (!character || !target) return false;
 
     const attackRangePadding = 1.5;
-    const enemyBoundingBox = new THREE.Box3().setFromObject(target);
+    const enemyBoundingBox = new THREE.Box3().setFromObject(enemyHitbox);
     const characterBoundingBox = new THREE.Box3().setFromObject(character);
 
     const attackRangeBox = enemyBoundingBox.clone();
@@ -299,7 +319,7 @@ function animate() {
       mixer.update(delta);
   }
 
-  if (character && target) {
+  if (character && target && !isAttacking) {
     if (!isInAttackRange()) { // Move until within attack range
       setAction('run');
       const direction = target.position.clone().sub(character.position).normalize();
@@ -310,17 +330,17 @@ function animate() {
 
       faceTarget(target);
     } else {
+      // In attack range, so attack.
+      isAttacking = true;
       faceTarget(target);
-      if (characterState !== 'punch_left' && characterState !== 'punch_right') {
-        if (useLeftPunch) {
-            setAction('punch_left');
-        } else {
-            setAction('punch_right');
-        }
-        useLeftPunch = !useLeftPunch;
+      if (useLeftPunch) {
+        setAction('punch_left');
+      } else {
+        setAction('punch_right');
       }
+      useLeftPunch = !useLeftPunch;
     }
-  } else if (character && targetPosition) {
+  } else if (character && targetPosition && !isAttacking) {
     const distance = character.position.distanceTo(targetPosition);
     if (distance > speed) {
       setAction('run');
@@ -339,7 +359,9 @@ function animate() {
       targetPosition = null;
     }
   } else {
+    if (!isAttacking) {
       setAction('idle');
+    }
   }
 
   if (character && targetRotation) {
@@ -367,6 +389,19 @@ function animate() {
         character.renderOrder = 0;
         enemy.renderOrder = 1;
     }
+  }
+
+  const elapsedTime = clock.getElapsedTime();
+  for (let i = damageNumbers.length - 1; i >= 0; i--) {
+      const damageNumber = damageNumbers[i];
+      if (elapsedTime - damageNumber.startTime > 1) {
+          damageNumber.element.remove();
+          damageNumbers.splice(i, 1);
+      } else {
+          const screenPosition = damageNumber.position.clone().project(camera);
+          damageNumber.element.style.left = `${(screenPosition.x + 1) / 2 * window.innerWidth}px`;
+          damageNumber.element.style.top = `${(-screenPosition.y + 1) / 2 * window.innerHeight}px`;
+      }
   }
 
   renderer.render(scene, camera);
