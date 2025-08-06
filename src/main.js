@@ -3,7 +3,6 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 // Config
 const speed = 0.1;
-const enemyHitboxScale = 1; // Adjust to make the enemy easier to click
 
 // Scene
 const scene = new THREE.Scene();
@@ -49,51 +48,89 @@ floor.receiveShadow = true;
 scene.add(floor);
 
 // Enemy
-let enemy;
-let enemyHitbox;
-const enemyLoader = new GLTFLoader();
-enemyLoader.load('assets/Dummy.glb', (gltf) => {
-    enemy = gltf.scene;
-    enemy.scale.set(1, 1, 1);
-    enemy.position.set(5, 0, 5);
-    enemy.castShadow = true;
-    enemy.userData = { name: 'Training Dummy', health: 10 };
-    enemy.traverse(function (node) {
-        if (node.isMesh) {
-            node.castShadow = true;
-            // Enable transparency for fading out
-            if (Array.isArray(node.material)) {
-                node.material.forEach(mat => {
-                    mat.transparent = true;
-                });
-            } else {
-                node.material.transparent = true;
+const enemies = [];
+const enemyHitboxes = [];
+
+function createEnemy(modelPath, name, position, stats) {
+    return new Promise((resolve, reject) => {
+        const loader = new GLTFLoader();
+        loader.load(modelPath, (gltf) => {
+            const newEnemy = gltf.scene;
+            newEnemy.scale.set(stats.scale, stats.scale, stats.scale);
+            newEnemy.position.copy(position);
+            newEnemy.castShadow = true;
+            newEnemy.userData = { ...stats, name, aiState: 'idle', lastAttackTime: 0, type: name };
+            newEnemy.traverse(function (node) {
+                if (node.isMesh) {
+                    node.castShadow = true;
+                    if (Array.isArray(node.material)) {
+                        node.material.forEach(mat => mat.transparent = true);
+                    } else {
+                        node.material.transparent = true;
+                    }
+                }
+            });
+            scene.add(newEnemy);
+
+            const mixer = new THREE.AnimationMixer(newEnemy);
+            const animations = gltf.animations;
+            console.log(`Available animations for ${name}:`, gltf.animations.map(a => a.name));
+            if (name === 'Slime') {
+                const anims = {
+                    idle: THREE.AnimationClip.findByName(animations, 'Armature|Slime_Idle'),
+                    walk: THREE.AnimationClip.findByName(animations, 'Armature|Slime_Walk'),
+                    attack: THREE.AnimationClip.findByName(animations, 'Armature|Slime_Attack'),
+                    death: THREE.AnimationClip.findByName(animations, 'Armature|Slime_Death')
+                };
+                newEnemy.userData.actions = {
+                    idle: mixer.clipAction(anims.idle),
+                    walk: mixer.clipAction(anims.walk),
+                    attack: mixer.clipAction(anims.attack),
+                    death: mixer.clipAction(anims.death)
+                };
+                if (newEnemy.userData.actions.attack) {
+                    newEnemy.userData.actions.attack.setLoop(THREE.LoopOnce);
+                }
+                if (newEnemy.userData.actions.death) {
+                    newEnemy.userData.actions.death.setLoop(THREE.LoopOnce);
+                    newEnemy.userData.actions.death.clampWhenFinished = true;
+                }
+            } else if (name === 'Dummy') {
+                newEnemy.userData.actions = {};
+                const idleClip = THREE.AnimationClip.findByName(animations, 'Idle');
+                if (idleClip) {
+                    newEnemy.userData.actions['idle'] = mixer.clipAction(idleClip);
+                }
             }
-        }
+
+            if (newEnemy.userData.actions && newEnemy.userData.actions.idle) {
+                newEnemy.userData.actions.idle.play();
+                newEnemy.userData.activeAction = newEnemy.userData.actions.idle;
+            }
+            newEnemy.userData.mixer = mixer;
+
+            const enemyBox = new THREE.Box3().setFromObject(newEnemy);
+            const boxSize = enemyBox.getSize(new THREE.Vector3());
+            const hitboxScale = stats.hitboxScale || 1;
+            boxSize.x *= hitboxScale;
+            boxSize.z *= hitboxScale;
+            boxSize.y *= 2;
+
+            const hitboxGeometry = new THREE.BoxGeometry(boxSize.x, boxSize.y, boxSize.z);
+            const hitboxMaterial = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
+            const hitbox = new THREE.Mesh(hitboxGeometry, hitboxMaterial);
+            hitbox.userData.isEnemyHitbox = true;
+            hitbox.userData.enemy = newEnemy;
+            hitbox.position.copy(newEnemy.position);
+            hitbox.position.y += boxSize.y / 2;
+            scene.add(hitbox);
+
+            enemies.push(newEnemy);
+            enemyHitboxes.push(hitbox);
+            resolve();
+        }, undefined, reject);
     });
-    scene.add(enemy);
-
-    // Create a larger, invisible hitbox for better click detection
-    const enemyBox = new THREE.Box3().setFromObject(enemy);
-    const boxSize = enemyBox.getSize(new THREE.Vector3());
-    const boxCenter = enemyBox.getCenter(new THREE.Vector3());
-
-    // Make hitbox larger on the horizontal plane
-    boxSize.x *= enemyHitboxScale;
-    boxSize.z *= enemyHitboxScale;
-    boxSize.y *= 2; // Make hitbox taller for easier hovering
-
-    const hitboxGeometry = new THREE.BoxGeometry(boxSize.x, boxSize.y, boxSize.z);
-    const hitboxMaterial = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
-    enemyHitbox = new THREE.Mesh(hitboxGeometry, hitboxMaterial);
-    enemyHitbox.userData.isEnemyHitbox = true;
-
-
-    // Position the hitbox to be centered on the enemy model
-    enemyHitbox.position.copy(enemy.position);
-    
-    scene.add(enemyHitbox);
-});
+}
 
 // Main character
 let character;
@@ -107,77 +144,94 @@ let attackQueued = false;
 const clock = new THREE.Clock();
 const damageNumbers = [];
 
-// Loading the character model from the glb file
-const loader = new GLTFLoader();
-loader.load('assets/Adventurer.glb', (gltf) => {
-    character = gltf.scene;
-    character.userData = { damage: 1, health: 100, maxHealth: 100, mana: 50, maxMana: 50 };
-    character.scale.set(0.5, 0.5, 0.5);
-    character.position.y = 0;
-    character.castShadow = true;
-    character.traverse(function (node) {
-        if (node.isMesh) {
-            node.castShadow = true;
-        }
-    });
-    scene.add(character);
-
-    mixer = new THREE.AnimationMixer(character);
-    
-    const animations = gltf.animations;
-    console.log('Available animations:', gltf.animations.map(a => a.name));
-    
-    const idleClip = THREE.AnimationClip.findByName(animations, 'CharacterArmature|Idle');
-    if (idleClip) {
-        actions['idle'] = mixer.clipAction(idleClip);
-        activeAction = actions['idle'];
-        activeAction.play();
-    } else {
-        console.error("Animation 'Idle' not found in the GLB file.");
-    }
-
-    const runClip = THREE.AnimationClip.findByName(animations, 'CharacterArmature|Run');
-    if (runClip) {
-        actions['run'] = mixer.clipAction(runClip);
-    } else {
-        // It's possible the run animation is named differently or not present.
-        // We will log this but not crash.
-        console.warn("Animation 'Run' not found in the GLB file.");
-    }
-
-    const leftPunchClip = THREE.AnimationClip.findByName(animations, 'CharacterArmature|Punch_Left');
-    if (leftPunchClip) {
-        actions['punch_left'] = mixer.clipAction(leftPunchClip);
-    } else {
-        console.warn("Animation 'Punch_Left' not found in the GLB file.");
-    }
-    
-    const rightPunchClip = THREE.AnimationClip.findByName(animations, 'CharacterArmature|Punch_Right');
-    if (rightPunchClip) {
-        actions['punch_right'] = mixer.clipAction(rightPunchClip);
-    } else {
-        console.warn("Animation 'Punch_Right' not found in the GLB file.");
-    }
-    mixer.addEventListener('finished', e => {
-        if (e.action === actions.punch_left || e.action === actions.punch_right) {
-            isAttacking = false;
-            characterState = 'idle';
-            if (target && target.userData.health > 0) {
-                target.userData.health -= character.userData.damage;
-                showDamageNumber(character.userData.damage, target.position);
-
-                if (target.userData.health <= 0 && !target.userData.dying) {
-                    target.userData.dying = true;
-                    target.userData.deathTime = clock.getElapsedTime();
-                    scene.remove(enemyHitbox); // Remove hitbox immediately
-                    target = null; // Stop targeting the dying enemy
+function loadCharacter() {
+    return new Promise((resolve, reject) => {
+        const loader = new GLTFLoader();
+        loader.load('assets/Adventurer.glb', (gltf) => {
+            character = gltf.scene;
+            character.userData = { damage: 1, health: 100, maxHealth: 100, mana: 50, maxMana: 50 };
+            character.scale.set(0.5, 0.5, 0.5);
+            character.position.y = 0;
+            character.castShadow = true;
+            character.traverse(function (node) {
+                if (node.isMesh) {
+                    node.castShadow = true;
                 }
+            });
+            scene.add(character);
+
+            mixer = new THREE.AnimationMixer(character);
+
+            const animations = gltf.animations;
+            console.log('Available animations:', gltf.animations.map(a => a.name));
+
+            const idleClip = THREE.AnimationClip.findByName(animations, 'CharacterArmature|Idle');
+            if (idleClip) {
+                actions['idle'] = mixer.clipAction(idleClip);
+                activeAction = actions['idle'];
+                activeAction.play();
+            } else {
+                console.error("Animation 'Idle' not found in the GLB file.");
             }
-        }
+
+            const runClip = THREE.AnimationClip.findByName(animations, 'CharacterArmature|Run');
+            if (runClip) {
+                actions['run'] = mixer.clipAction(runClip);
+            } else {
+                console.warn("Animation 'Run' not found in the GLB file.");
+            }
+
+            const leftPunchClip = THREE.AnimationClip.findByName(animations, 'CharacterArmature|Punch_Left');
+            if (leftPunchClip) {
+                actions['punch_left'] = mixer.clipAction(leftPunchClip);
+            } else {
+                console.warn("Animation 'Punch_Left' not found in the GLB file.");
+            }
+
+            const rightPunchClip = THREE.AnimationClip.findByName(animations, 'CharacterArmature|Punch_Right');
+            if (rightPunchClip) {
+                actions['punch_right'] = mixer.clipAction(rightPunchClip);
+            } else {
+                console.warn("Animation 'Punch_Right' not found in the GLB file.");
+            }
+
+            const hitRecieveClip = THREE.AnimationClip.findByName(animations, 'CharacterArmature|HitRecieve');
+            if (hitRecieveClip) {
+                actions['hit'] = mixer.clipAction(hitRecieveClip);
+            } else {
+                console.warn("Animation 'CharacterArmature|HitRecieve' not found in the GLB file.");
+            }
+
+            mixer.addEventListener('finished', e => {
+                if (e.action === actions.punch_left || e.action === actions.punch_right) {
+                    isAttacking = false;
+                    characterState = 'idle';
+                    if (target && target.userData.health > 0) {
+                        target.userData.health -= character.userData.damage;
+                        showDamageNumber(character.userData.damage, target.position);
+
+                        if (target.userData.health <= 0 && !target.userData.dying) {
+                            target.userData.dying = true;
+                            setEnemyAction(target, 'death');
+                            const enemyHitbox = enemyHitboxes.find(hb => hb.userData.enemy === target);
+                            if (enemyHitbox) {
+                                const index = enemyHitboxes.indexOf(enemyHitbox);
+                                if (index > -1) {
+                                    enemyHitboxes.splice(index, 1);
+                                }
+                                scene.remove(enemyHitbox);
+                            }
+                            target = null; // Stop targeting the dying enemy
+                        }
+                    }
+                } else if (e.action === actions.hit) {
+                    characterState = 'idle';
+                }
+            });
+            resolve();
+        }, undefined, reject);
     });
-}, undefined, (error) => {
-    console.error("Error loading model:", error);
-});
+}
 
 
 let targetPosition = null;
@@ -199,19 +253,14 @@ window.addEventListener('mousedown', (event) => {
     mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
 
     raycaster.setFromCamera(mouse, camera);
-    if (!enemy || !enemyHitbox) return;
-    const intersects = raycaster.intersectObjects([enemyHitbox, floor], true);
+    if (enemyHitboxes.length === 0) return;
+    const intersects = raycaster.intersectObjects([...enemyHitboxes, floor], true);
 
     if (intersects.length > 0) {
         const intersection = intersects[0];
         
-        let isEnemyClicked = false;
         if (intersection.object.userData.isEnemyHitbox) {
-            isEnemyClicked = true;
-        }
-
-        if (isEnemyClicked) {
-            target = enemy;
+            target = intersection.object.userData.enemy;
             targetPosition = null; // Clear movement target
             attackQueued = true; // Queue a single attack
         } else if (intersection.object === floor) {
@@ -244,18 +293,14 @@ window.addEventListener('mousemove', (event) => {
         }
     } else {
         // Hover detection
-        if (!enemy || !enemyHitbox) return;
-        const intersects = raycaster.intersectObjects([enemyHitbox, floor], true);
-        
-        let isHoveringEnemy = false;
-        if (intersects.length > 0 && intersects[0].object.userData.isEnemyHitbox) {
-            isHoveringEnemy = true;
-        }
-
-        if (isHoveringEnemy) {
-            hoveredTarget = enemy;
-        } else {
-            hoveredTarget = null;
+        if (enemyHitboxes.length > 0) {
+            const intersects = raycaster.intersectObjects([...enemyHitboxes, floor], true);
+            
+            if (intersects.length > 0 && intersects[0].object.userData.isEnemyHitbox) {
+                hoveredTarget = intersects[0].object.userData.enemy;
+            } else {
+                hoveredTarget = null;
+            }
         }
     }
 });
@@ -281,7 +326,7 @@ function setAction(name) {
     }
 
     activeAction.reset();
-    if (name === 'punch_left' || name === 'punch_right') {
+    if (name === 'punch_left' || name === 'punch_right' || name === 'hit') {
         activeAction.setLoop(THREE.LoopOnce);
         activeAction.clampWhenFinished = true;
     }
@@ -298,18 +343,50 @@ function faceTarget(target) {
     }
 }
 
+function setEnemyAction(enemy, name) {
+    if (!enemy.userData.actions || !enemy.userData.actions[name]) return;
+    
+    const newAction = enemy.userData.actions[name];
+    const previousAction = enemy.userData.activeAction;
+
+    if (previousAction === newAction && newAction.isRunning() && name !== 'attack' && name !== 'death') {
+        return;
+    }
+
+    if (previousAction) {
+        previousAction.fadeOut(0.2);
+    }
+    
+    newAction
+        .reset()
+        .setEffectiveTimeScale(1)
+        .setEffectiveWeight(1)
+        .fadeIn(0.2)
+        .play();
+
+    enemy.userData.activeAction = newAction;
+    enemy.userData.aiState = name;
+}
+
 function isCollidingWithEnemy(nextPosition) {
-    if (!enemy || !enemyHitbox || enemy.userData.dying) return false;
-
-    const enemyBoundingBox = new THREE.Box3().setFromObject(enemyHitbox);
     const characterBoundingBox = new THREE.Box3().setFromObject(character);
-
-    // Predict character's next bounding box
     const nextCharacterBoundingBox = characterBoundingBox.clone();
     const movement = nextPosition.clone().sub(character.position);
     nextCharacterBoundingBox.translate(movement);
 
-    return nextCharacterBoundingBox.intersectsBox(enemyBoundingBox);
+    for (const hitbox of enemyHitboxes) {
+        // Don't check collision with the dying enemy or the current target
+        if (hitbox.userData.enemy.userData.dying || hitbox.userData.enemy === target) {
+            continue;
+        }
+
+        const enemyBoundingBox = new THREE.Box3().setFromObject(hitbox);
+        if (nextCharacterBoundingBox.intersectsBox(enemyBoundingBox)) {
+            return true; // Collision detected
+        }
+    }
+
+    return false; // No collision
 }
 
 function showDamageNumber(damage, position) {
@@ -320,7 +397,7 @@ function showDamageNumber(damage, position) {
     damageElement.classList.add('damage-number');
     container.appendChild(damageElement);
 
-    const enemyHeight = new THREE.Box3().setFromObject(enemy).getSize(new THREE.Vector3()).y;
+    const enemyHeight = new THREE.Box3().setFromObject(target).getSize(new THREE.Vector3()).y;
     const damageNumberOffset = new THREE.Vector3(0, enemyHeight, 0);
     const damageNumberPosition = position.clone().add(damageNumberOffset);
 
@@ -335,6 +412,8 @@ function isInAttackRange() {
     if (!character || !target) return false;
 
     const attackRangePadding = 1.5;
+    const enemyHitbox = enemyHitboxes.find(hb => hb.userData.enemy === target);
+    if (!enemyHitbox) return false;
     const enemyBoundingBox = new THREE.Box3().setFromObject(enemyHitbox);
     const characterBoundingBox = new THREE.Box3().setFromObject(character);
 
@@ -348,13 +427,13 @@ function updateTargetInfo() {
     const targetInfo = document.getElementById('target-info');
     const currentTarget = target || hoveredTarget;
 
-    if (currentTarget && enemy) {
+    if (currentTarget) {
         targetInfo.classList.remove('hidden');
         const targetName = document.getElementById('target-name');
         const targetHealthFill = document.querySelector('#target-health-bar .health-bar-fill');
         
         targetName.textContent = currentTarget.userData.name;
-        const healthPercentage = (currentTarget.userData.health / 10) * 100;
+        const healthPercentage = (currentTarget.userData.health / currentTarget.userData.maxHealth) * 100;
         targetHealthFill.style.width = `${healthPercentage}%`;
     } else {
         targetInfo.classList.add('hidden');
@@ -381,6 +460,40 @@ function updateHealthBars() {
     }
 }
 
+async function init() {
+    const characterPromise = loadCharacter();
+    const slimePromise = createEnemy('assets/Slime.glb', 'Slime', new THREE.Vector3(-5, 0, -5), {
+        scale: 0.2,
+        health: 5,
+        maxHealth: 5,
+        damage: 5,
+        attackSpeed: 2000, // ms
+        chaseRange: 5,
+        attackRange: 1.5,
+        xp: 10,
+        hitboxScale: 2
+    });
+    const dummyPromise = createEnemy('assets/Dummy.glb', 'Dummy', new THREE.Vector3(5, 0, 5), {
+        scale: 1,
+        health: 100,
+        maxHealth: 100,
+        damage: 0,
+        attackSpeed: 0,
+        chaseRange: 0,
+        attackRange: 0,
+        xp: 0,
+        hitboxScale: 1
+    });
+
+    try {
+        await Promise.all([characterPromise, slimePromise, dummyPromise]);
+        console.log("All assets loaded, starting game.");
+        animate();
+    } catch (error) {
+        console.error("Failed to load assets:", error);
+    }
+}
+
 // Animation loop
 function animate() {
   requestAnimationFrame(animate);
@@ -390,6 +503,11 @@ function animate() {
   if (mixer) {
       mixer.update(delta);
   }
+  enemies.forEach(enemy => {
+    if (enemy.userData.mixer) {
+        enemy.userData.mixer.update(delta);
+    }
+  });
 
   if (character) {
     let movingToEnemy = false;
@@ -447,6 +565,12 @@ function animate() {
     }
 }
 
+
+  // Update enemy hitboxes to follow enemies
+  enemyHitboxes.forEach(hitbox => {
+    hitbox.position.copy(hitbox.userData.enemy.position);
+  });
+
   if (character && targetRotation) {
     character.quaternion.slerp(targetRotation, 0.1);
   }
@@ -464,14 +588,16 @@ function animate() {
     camera.lookAt(character.position);
   }
 
-  if (character && enemy) {
-    if (character.position.z > enemy.position.z) {
-        character.renderOrder = 1;
-        enemy.renderOrder = 0;
-    } else {
-        character.renderOrder = 0;
-        enemy.renderOrder = 1;
-    }
+  if (character && enemies.length > 0) {
+    enemies.forEach(enemy => {
+        if (character.position.z > enemy.position.z) {
+            character.renderOrder = 1;
+            enemy.renderOrder = 0;
+        } else {
+            character.renderOrder = 0;
+            enemy.renderOrder = 1;
+        }
+    });
   }
 
   const elapsedTime = clock.getElapsedTime();
@@ -487,29 +613,62 @@ function animate() {
       }
   }
 
-  if (enemy && enemy.userData.dying) {
-    const fadeDuration = 5;
-    const elapsedTime = clock.getElapsedTime() - enemy.userData.deathTime;
-    if (elapsedTime < fadeDuration) {
-        const opacity = 1.0 - (elapsedTime / fadeDuration);
-        enemy.traverse(function (node) {
-            if (node.isMesh) {
-                if (Array.isArray(node.material)) {
-                    node.material.forEach(mat => mat.opacity = opacity);
-                } else {
-                    node.material.opacity = opacity;
+  enemies.forEach((enemy, index) => {
+    if (enemy.userData.dying) {
+        const fadeDuration = 5;
+        const elapsedTime = clock.getElapsedTime() - enemy.userData.deathTime;
+        if (elapsedTime < fadeDuration) {
+            const opacity = 1.0 - (elapsedTime / fadeDuration);
+            enemy.traverse(function (node) {
+                if (node.isMesh) {
+                    if (Array.isArray(node.material)) {
+                        node.material.forEach(mat => mat.opacity = opacity);
+                    } else {
+                        node.material.opacity = opacity;
+                    }
                 }
+            });
+        } else {
+            scene.remove(enemy);
+            scene.remove(enemy.userData.hitbox);
+            enemies.splice(index, 1);
+            enemyHitboxes.splice(index, 1);
+        }
+    } else if (character) {
+        const distanceToPlayer = character.position.distanceTo(enemy.position);
+        const chaseRange = enemy.userData.chaseRange;
+        const attackRange = enemy.userData.attackRange;
+        const now = Date.now();
+        const attackSpeed = enemy.userData.attackSpeed;
+        const lastAttackTime = enemy.userData.lastAttackTime;
+
+        if (distanceToPlayer <= attackRange) {
+            if (now - lastAttackTime > attackSpeed) {
+                setEnemyAction(enemy, 'attack');
+                enemy.userData.lastAttackTime = now;
+                character.userData.health -= enemy.userData.damage;
+                if (character.userData.health > 0) {
+                    setAction('hit');
+                }
+            } else if (enemy.userData.aiState !== 'attack') {
+                setEnemyAction(enemy, 'idle');
             }
-        });
-    } else {
-        scene.remove(enemy);
-        enemy = null;
+        } else if (distanceToPlayer <= chaseRange) {
+            const direction = character.position.clone().sub(enemy.position).normalize();
+            enemy.position.add(direction.multiplyScalar(0.02));
+            const angle = Math.atan2(direction.x, direction.z) - Math.PI / 2;
+            enemy.quaternion.slerp(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), angle), 0.1);
+            setEnemyAction(enemy, 'walk');
+        } else {
+            setEnemyAction(enemy, 'idle');
+        }
     }
-  }
+  });
 
   updateHealthBars();
   updateTargetInfo();
   renderer.render(scene, camera);
 }
 
-animate();
+
+init();

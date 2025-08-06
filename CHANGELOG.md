@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.3.0] - 2025-08-06
+
+### Added
+- A new "Slime" enemy type.
+- Refactored the enemy management system to handle multiple, distinct enemies.
+
+### Changed
+- Updated targeting and AI logic to work with multiple enemies.
+
 ## [1.2.0] - 2025-08-06
 
 ### Added
@@ -15,6 +24,7 @@ All notable changes to this project will be documented in this file.
 - Created a UI system for health bars for both player and enemy.
 - Added floating damage numbers on hit.
 - Added a mana system with a UI bar for the player.
+- Implemented basic enemy AI with chase and attack logic.
 
 ### Changed
 - Swapped the placeholder enemy cube for a new "Dummy" model.

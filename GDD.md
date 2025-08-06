@@ -45,7 +45,7 @@ This section is for planning future features.
 
 ### 4.2. Combat
 - [x] Implement basic attack functionality.
-- [ ] Add enemies with simple AI (e.g., follow and attack).
+- [x] Add enemies with simple AI (e.g., follow and attack).
 - [x] Introduce a health and damage system.
 
 ### 4.3. Environment
