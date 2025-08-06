@@ -535,8 +535,6 @@ function animate() {
                     setAction('punch_right');
                 }
                 useLeftPunch = !useLeftPunch;
-            } else if (isMouseDown) {
-                attackQueued = true;
             }
         } else if (target) {
             // Move towards enemy only if it's the active target
