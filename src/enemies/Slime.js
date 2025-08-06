@@ -12,7 +12,8 @@ export class Slime extends Enemy {
             chaseRange: 5,
             attackRange: 0.5,
             xp: 10,
-            mov_speed: 0.05
+            mov_speed: 0.03,
+            move_delay: 20
         };
         const hitboxScale = new THREE.Vector3(4, 10, 4);
         super(scene, 'assets/Slime.glb', 'Slime', position, stats, hitboxScale);

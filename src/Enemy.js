@@ -25,7 +25,7 @@ export class Enemy {
                 this.model.scale.set(this.stats.scale, this.stats.scale, this.stats.scale);
                 this.model.position.copy(this.position);
                 this.model.castShadow = true;
-                this.model.userData = { ...this.stats, name: this.name, aiState: 'idle', lastAttackTime: 0, type: this.name, actions: {} };
+                this.model.userData = { ...this.stats, name: this.name, aiState: 'idle', lastAttackTime: 0, lastMoveTime: 0, type: this.name, actions: {} };
                 this.model.traverse((node) => {
                     if (node.isMesh) {
                         node.castShadow = true;

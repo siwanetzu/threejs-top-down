@@ -230,10 +230,14 @@ export class Game {
 
                 if (enemy.model.userData.aiState === 'chasing') {
                     if (distanceToPlayer > enemy.model.userData.attackRange) {
-                        const direction = this.player.model.position.clone().sub(enemy.model.position).normalize();
-                        enemy.model.position.add(direction.multiplyScalar(enemy.model.userData.mov_speed));
+                        const now = performance.now();
+                        if (now - enemy.model.userData.lastMoveTime > enemy.model.userData.move_delay) {
+                            enemy.model.userData.lastMoveTime = now;
+                            const direction = this.player.model.position.clone().sub(enemy.model.position).normalize();
+                            enemy.model.position.add(direction.multiplyScalar(enemy.model.userData.mov_speed));
+                        }
                         
-                        let angle = Math.atan2(direction.x, direction.z);
+                        let angle = Math.atan2(this.player.model.position.clone().sub(enemy.model.position).normalize().x, this.player.model.position.clone().sub(enemy.model.position).normalize().z);
                         if (enemy.name === 'Slime') {
                             angle -= Math.PI / 2;
                         }
