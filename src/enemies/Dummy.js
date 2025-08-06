@@ -11,7 +11,8 @@ export class Dummy extends Enemy {
             attackSpeed: 0,
             chaseRange: 0,
             attackRange: 0,
-            xp: 0
+            xp: 0,
+            mov_speed: 0
         };
         const hitboxScale = new THREE.Vector3(1, 2, 1);
         super(scene, 'assets/Dummy.glb', 'Dummy', position, stats, hitboxScale);
