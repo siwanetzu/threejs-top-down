@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.0] - 2025-08-06
+
+### Changed
+- Replaced grid-based movement with free-form movement. The character now moves directly towards the cursor's position on the ground plane.
+- Implemented "hold-to-move" functionality, where the character continuously follows the cursor while the left mouse button is held down.
+
+### Removed
+- Removed the A* pathfinding system (`Pathfinding.js`) as it is no longer needed for free-form movement.
+- Removed the visual grid helper from the scene.
+
 ## [1.0.0] - 2025-08-04
 
 ### Added

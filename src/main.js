@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { Pathfinding } from './Pathfinding.js';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 // Config
 const speed = 0.1;
@@ -41,39 +41,60 @@ floor.rotation.x = -Math.PI / 2;
 floor.receiveShadow = true;
 scene.add(floor);
 
-// Grid
-const gridHelper = new THREE.GridHelper(24, 24);
-scene.add(gridHelper);
 // Character
-const characterGeometry = new THREE.BoxGeometry(0.5, 0.5, 0.5);
-const characterMaterial = new THREE.MeshStandardMaterial({ color: 0x0000ff });
-const character = new THREE.Mesh(characterGeometry, characterMaterial);
-character.position.y = 0.25;
-character.castShadow = true;
-scene.add(character);
+let character;
+let mixer;
+const clock = new THREE.Clock();
 
-// Pathfinding
-const grid = { width: 24, height: 24 }; // Simplified grid representation
-const pathfinding = new Pathfinding(grid);
-let path = [];
-let pathLine = null;
+const loader = new GLTFLoader();
+loader.load('assets/Adventurer idle.glb', (gltf) => {
+    character = gltf.scene;
+    character.scale.set(0.5, 0.5, 0.5);
+    character.position.y = 0;
+    character.castShadow = true;
+    character.traverse(function (node) {
+        if (node.isMesh) {
+            node.castShadow = true;
+        }
+    });
+    scene.add(character);
+
+    mixer = new THREE.AnimationMixer(character);
+    const clips = gltf.animations;
+    const idleClip = THREE.AnimationClip.findByName(clips, 'Idle');
+    if (idleClip) {
+        const idleAction = mixer.clipAction(idleClip);
+        idleAction.play();
+    }
+}, undefined, (error) => {
+    console.error(error);
+});
+
+
+let targetPosition = null;
 
 // Mouse click to move
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
 let isMouseDown = false;
-let directTarget = null;
 let mouseMoved = false;
-
 window.addEventListener('mousedown', (event) => {
-    if (event.button !== 0) return;
+    if (event.button !== 0) return; // Only left-click
     isMouseDown = true;
     mouseMoved = false;
-    if (pathLine) {
-        scene.remove(pathLine);
-        pathLine = null;
+
+    mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+    mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+    raycaster.setFromCamera(mouse, camera);
+    const intersects = raycaster.intersectObject(floor);
+
+    if (intersects.length > 0) {
+        targetPosition = intersects[0].point;
+        if (character) {
+            targetPosition.y = character.position.y; // Keep character on the same plane
+        }
     }
-    path = [];
 });
 
 window.addEventListener('mousemove', (event) => {
@@ -81,17 +102,15 @@ window.addEventListener('mousemove', (event) => {
         mouseMoved = true;
         mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
         mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
         raycaster.setFromCamera(mouse, camera);
         const intersects = raycaster.intersectObject(floor);
+
         if (intersects.length > 0) {
-            const clickPoint = intersects[0].point;
-            let gridX = Math.floor(clickPoint.x + grid.width / 2);
-            let gridY = Math.floor(clickPoint.z + grid.height / 2);
-
-            gridX = Math.max(0, Math.min(gridX, grid.width - 1));
-            gridY = Math.max(0, Math.min(gridY, grid.height - 1));
-
-            directTarget = new THREE.Vector3(gridX - grid.width / 2 + 0.5, 0.25, gridY - grid.height / 2 + 0.5);
+            targetPosition = intersects[0].point;
+            if (character) {
+                targetPosition.y = character.position.y;
+            }
         }
     }
 });
@@ -99,77 +118,44 @@ window.addEventListener('mousemove', (event) => {
 window.addEventListener('mouseup', (event) => {
     if (event.button !== 0) return;
     isMouseDown = false;
-
-    if (!mouseMoved) {
-        // This was a click, not a drag
-        mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-        mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-        raycaster.setFromCamera(mouse, camera);
-        const intersects = raycaster.intersectObject(floor);
-        if (intersects.length > 0) {
-            const clickPoint = intersects[0].point;
-            const startX = Math.floor(character.position.x + grid.width / 2);
-            const startY = Math.floor(character.position.z + grid.height / 2);
-            let endX = Math.floor(clickPoint.x + grid.width / 2);
-            let endY = Math.floor(clickPoint.z + grid.height / 2);
-
-            endX = Math.max(0, Math.min(endX, grid.width - 1));
-            endY = Math.max(0, Math.min(endY, grid.height - 1));
-
-            const newPath = pathfinding.findPath({ x: startX, y: startY }, { x: endX, y: endY });
-            if (newPath) {
-                path = newPath.map(p => new THREE.Vector3(p.x - grid.width / 2 + 0.5, 0.25, p.y - grid.height / 2 + 0.5));
-                if (pathLine) {
-                    scene.remove(pathLine);
-                }
-                const lineMaterial = new THREE.LineBasicMaterial({ color: 0x00FFFF });
-                const lineGeometry = new THREE.BufferGeometry().setFromPoints(path);
-                pathLine = new THREE.Line(lineGeometry, lineMaterial);
-                scene.add(pathLine);
-            }
-        }
+    if (mouseMoved) {
+        targetPosition = null;
     }
-    directTarget = null;
 });
 
 // Animation loop
 function animate() {
   requestAnimationFrame(animate);
 
-  let currentTarget = null;
-  if (isMouseDown && directTarget) {
-    currentTarget = directTarget;
-  } else if (path.length > 0) {
-    currentTarget = path[0];
+  const delta = clock.getDelta();
+
+  if (mixer) {
+      mixer.update(delta);
   }
 
-  if (currentTarget) {
-    const distance = character.position.distanceTo(currentTarget);
+  if (character && targetPosition) {
+    const distance = character.position.distanceTo(targetPosition);
     if (distance > speed) {
-      const direction = currentTarget.clone().sub(character.position).normalize();
+      const direction = targetPosition.clone().sub(character.position).normalize();
       character.position.add(direction.multiplyScalar(speed));
     } else {
-      character.position.copy(currentTarget);
-      if (!isMouseDown && path.length > 0) {
-        path.shift();
-        if (path.length === 0 && pathLine) {
-          scene.remove(pathLine);
-          pathLine = null;
-        }
-      }
+      character.position.copy(targetPosition);
+      targetPosition = null;
     }
   }
 
-  const coords = {
-    x: Math.round(character.position.x),
-    y: Math.round(character.position.z)
-  };
-  document.getElementById('coordinates').innerText = `x: ${coords.x}, y: ${coords.y}`;
+  if (character) {
+    const coords = {
+      x: Math.round(character.position.x),
+      y: Math.round(character.position.z)
+    };
+    document.getElementById('coordinates').innerText = `x: ${coords.x}, y: ${coords.y}`;
 
-  // Camera follows player
-  camera.position.x = character.position.x + 10;
-  camera.position.z = character.position.z + 10;
-  camera.lookAt(character.position);
+    // Camera follows player
+    camera.position.x = character.position.x + 10;
+    camera.position.z = character.position.z + 10;
+    camera.lookAt(character.position);
+  }
 
   renderer.render(scene, camera);
 }

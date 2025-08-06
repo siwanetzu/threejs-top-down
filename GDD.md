@@ -6,9 +6,9 @@ This document outlines the technical design and future roadmap for our top-down 
 ## 2. Core Gameplay Mechanics
 ### 2.1. Character Movement
 - **Control Scheme:** The player controls the character using the mouse.
-  - **Hold Left Mouse Button:** The character moves continuously towards the grid cell under the cursor.
-  - **Release Left Mouse Button:** The character calculates an A* path to the final cursor position and moves there.
-- **Movement Type:** 8-directional, grid-based movement.
+  - **Click to Move:** The character moves to the clicked location.
+  - **Hold to Move:** The character follows the cursor as long as the mouse button is held down.
+- **Movement Type:** Free-form, not restricted to a grid.
 - **Speed:** Configurable `speed` variable (currently `0.1`).
 
 ### 2.2. Camera
@@ -24,12 +24,8 @@ This document outlines the technical design and future roadmap for our top-down 
 - **Environment:** `vite` provides the development server and build tooling.
 
 ### 3.2. Pathfinding
-- **Algorithm:** A*
-- **Implementation:** The `Pathfinding` class in `src/Pathfinding.js` handles all pathfinding logic.
-- **Features:**
-  - 8-directional movement.
-  - Grid-based calculation.
-  - Diagonal distance heuristic for optimal pathing.
+- **Algorithm:** None. Movement is direct.
+- **Implementation:** The movement logic is handled directly in `src/main.js`.
 
 ## 4. Future Roadmap
 This section is for planning future features.
