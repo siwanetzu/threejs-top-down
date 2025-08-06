@@ -27,7 +27,7 @@ canvas {
 .damage-number {
     position: absolute;
     color: red;
-    font-size: 24px;
+    font-size: 36px;
     font-weight: bold;
     animation: floatUp 1s ease-out;
     transform: translateX(-50%);
@@ -66,4 +66,40 @@ canvas {
     height: 100%;
     background-color: #0f0;
     transition: width 0.2s ease-in-out;
+}
+
+#player-health-bar-container {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+}
+
+#player-health-bar {
+    width: 200px;
+    height: 20px;
+    background-color: #555;
+    border: 1px solid #000;
+    position: relative;
+}
+
+#player-health-bar .health-bar-fill {
+    background-color: red;
+}
+
+#player-health-text {
+    position: absolute;
+    width: 100%;
+    color: white;
+    font-weight: bold;
+    line-height: 20px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+#player-health-label {
+    margin-right: 5px;
 }

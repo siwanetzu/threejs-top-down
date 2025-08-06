@@ -103,7 +103,7 @@ const damageNumbers = [];
 const loader = new GLTFLoader();
 loader.load('assets/Adventurer.glb', (gltf) => {
     character = gltf.scene;
-    character.userData = { damage: 1 };
+    character.userData = { damage: 1, health: 100, maxHealth: 100 };
     character.scale.set(0.5, 0.5, 0.5);
     character.position.y = 0;
     character.castShadow = true;
@@ -313,6 +313,28 @@ function isInAttackRange() {
 
     return characterBoundingBox.intersectsBox(attackRangeBox);
 }
+function updateHealthBars() {
+    if (character) {
+        const playerHealthFill = document.querySelector('#player-health-bar .health-bar-fill');
+        const playerHealthValue = document.getElementById('player-health-value');
+        
+        const healthPercentage = (character.userData.health / character.userData.maxHealth) * 100;
+        playerHealthFill.style.width = `${healthPercentage}%`;
+        playerHealthValue.textContent = `${character.userData.health}/${character.userData.maxHealth}`;
+    }
+
+    if (enemy) {
+        const enemyHealthBar = document.getElementById('enemy-health-bar');
+        if (enemyHealthBar) {
+            const enemyHealthFill = enemyHealthBar.querySelector('.health-bar-fill');
+            const enemyScreenPos = enemy.position.clone().project(camera);
+            enemyHealthBar.style.left = `${(enemyScreenPos.x + 1) / 2 * window.innerWidth}px`;
+            enemyHealthBar.style.top = `${(-enemyScreenPos.y + 1) / 2 * window.innerHeight - 50}px`;
+            enemyHealthFill.style.width = `${(enemy.userData.health / 10) * 100}%`;
+        }
+    }
+}
+
 // Animation loop
 function animate() {
   requestAnimationFrame(animate);
@@ -419,6 +441,7 @@ function animate() {
       }
   }
 
+  updateHealthBars();
   renderer.render(scene, camera);
 }
 
