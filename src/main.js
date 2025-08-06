@@ -7,8 +7,6 @@ const enemyHitboxScale = 1; // Adjust to make the enemy easier to click
 
 // Scene
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x87CEEB);
-
 // Camera
 const aspect = window.innerWidth / window.innerHeight;
 const d = 7;
@@ -20,7 +18,8 @@ camera.lookAt(scene.position);
 const renderer = new THREE.WebGLRenderer({
   canvas: document.querySelector('#bg'),
   antialias: true,
-  logarithmicDepthBuffer: true
+  logarithmicDepthBuffer: true,
+  alpha: true
 });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(window.devicePixelRatio);
@@ -58,7 +57,7 @@ enemyLoader.load('assets/Dummy.glb', (gltf) => {
     enemy.scale.set(1, 1, 1);
     enemy.position.set(5, 0, 5);
     enemy.castShadow = true;
-    enemy.userData = { health: 10 };
+    enemy.userData = { name: 'Training Dummy', health: 10 };
     enemy.traverse(function (node) {
         if (node.isMesh) {
             node.castShadow = true;
@@ -74,6 +73,7 @@ enemyLoader.load('assets/Dummy.glb', (gltf) => {
     // Make hitbox larger on the horizontal plane
     boxSize.x *= enemyHitboxScale;
     boxSize.z *= enemyHitboxScale;
+    boxSize.y *= 2; // Make hitbox taller for easier hovering
 
     const hitboxGeometry = new THREE.BoxGeometry(boxSize.x, boxSize.y, boxSize.z);
     const hitboxMaterial = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
@@ -174,6 +174,7 @@ loader.load('assets/Adventurer.glb', (gltf) => {
 let targetPosition = null;
 let targetRotation = null;
 let target = null; // To store the clicked enemy
+let hoveredTarget = null;
 
 // Mouse click to move
 const raycaster = new THREE.Raycaster();
@@ -215,14 +216,15 @@ window.addEventListener('mousedown', (event) => {
 });
 
 window.addEventListener('mousemove', (event) => {
+    mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+    mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+    raycaster.setFromCamera(mouse, camera);
+
     if (isMouseDown && !isAttacking) {
         mouseMoved = true;
         target = null; // Cancel enemy targeting if mouse is dragged
         attackQueued = false; // Also cancel queued attack
-        mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-        mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
 
-        raycaster.setFromCamera(mouse, camera);
         const intersects = raycaster.intersectObject(floor);
 
         if (intersects.length > 0) {
@@ -230,6 +232,21 @@ window.addEventListener('mousemove', (event) => {
             if (character) {
                 targetPosition.y = character.position.y;
             }
+        }
+    } else {
+        // Hover detection
+        if (!enemy || !enemyHitbox) return;
+        const intersects = raycaster.intersectObjects([enemyHitbox, floor], true);
+        
+        let isHoveringEnemy = false;
+        if (intersects.length > 0 && intersects[0].object.userData.isEnemyHitbox) {
+            isHoveringEnemy = true;
+        }
+
+        if (isHoveringEnemy) {
+            hoveredTarget = enemy;
+        } else {
+            hoveredTarget = null;
         }
     }
 });
@@ -294,9 +311,13 @@ function showDamageNumber(damage, position) {
     damageElement.classList.add('damage-number');
     container.appendChild(damageElement);
 
+    const enemyHeight = new THREE.Box3().setFromObject(enemy).getSize(new THREE.Vector3()).y;
+    const damageNumberOffset = new THREE.Vector3(0, enemyHeight, 0);
+    const damageNumberPosition = position.clone().add(damageNumberOffset);
+
     damageNumbers.push({
         element: damageElement,
-        position: position.clone(),
+        position: damageNumberPosition,
         startTime: clock.getElapsedTime()
     });
 }
@@ -313,6 +334,24 @@ function isInAttackRange() {
 
     return characterBoundingBox.intersectsBox(attackRangeBox);
 }
+
+function updateTargetInfo() {
+    const targetInfo = document.getElementById('target-info');
+    const currentTarget = target || hoveredTarget;
+
+    if (currentTarget && enemy) {
+        targetInfo.classList.remove('hidden');
+        const targetName = document.getElementById('target-name');
+        const targetHealthFill = document.querySelector('#target-health-bar .health-bar-fill');
+        
+        targetName.textContent = currentTarget.userData.name;
+        const healthPercentage = (currentTarget.userData.health / 10) * 100;
+        targetHealthFill.style.width = `${healthPercentage}%`;
+    } else {
+        targetInfo.classList.add('hidden');
+    }
+}
+
 function updateHealthBars() {
     if (character) {
         const playerHealthFill = document.querySelector('#player-health-bar .health-bar-fill');
@@ -321,17 +360,6 @@ function updateHealthBars() {
         const healthPercentage = (character.userData.health / character.userData.maxHealth) * 100;
         playerHealthFill.style.width = `${healthPercentage}%`;
         playerHealthValue.textContent = `${character.userData.health}/${character.userData.maxHealth}`;
-    }
-
-    if (enemy) {
-        const enemyHealthBar = document.getElementById('enemy-health-bar');
-        if (enemyHealthBar) {
-            const enemyHealthFill = enemyHealthBar.querySelector('.health-bar-fill');
-            const enemyScreenPos = enemy.position.clone().project(camera);
-            enemyHealthBar.style.left = `${(enemyScreenPos.x + 1) / 2 * window.innerWidth}px`;
-            enemyHealthBar.style.top = `${(-enemyScreenPos.y + 1) / 2 * window.innerHeight - 50}px`;
-            enemyHealthFill.style.width = `${(enemy.userData.health / 10) * 100}%`;
-        }
     }
 }
 
@@ -364,8 +392,8 @@ function animate() {
                 }
                 useLeftPunch = !useLeftPunch;
             }
-        } else {
-            // Move towards enemy
+        } else if (target) {
+            // Move towards enemy only if it's the active target
             movingToEnemy = true;
             const direction = target.position.clone().sub(character.position).normalize();
             const nextPosition = character.position.clone().add(direction.clone().multiplyScalar(speed));
@@ -442,6 +470,7 @@ function animate() {
   }
 
   updateHealthBars();
+  updateTargetInfo();
   renderer.render(scene, camera);
 }
 
