@@ -32,7 +32,7 @@ This document outlines the technical design and future roadmap for our top-down 
 
 ### 3.2. Pathfinding
 - **Algorithm:** None. Movement is direct.
-- **Implementation:** The movement logic is handled directly in `src/main.js`.
+- **Implementation:** The game is built on a modular, class-based architecture. Core logic is managed by the `Game` class, with specialized modules for the `Player`, `Enemy` types, `UIManager`, and `InputHandler`.
 
 ## 4. Future Roadmap
 This section is for planning future features.

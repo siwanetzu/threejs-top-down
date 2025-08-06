@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.0] - 2025-08-06
+
+### Changed
+- **Major Refactor:** The entire project has been refactored into a modular, class-based architecture to improve organization, scalability, and maintainability.
+  - `main.js` is now a simple entry point.
+  - `Game.js` manages the core game loop and scene.
+  - `Player.js` encapsulates all player logic.
+  - `Enemy.js` provides a base class for enemies, with specific implementations in `Slime.js` and `Dummy.js`.
+  - `UIManager.js` handles all DOM interactions.
+  - `InputHandler.js` manages all player input.
+
 ## [1.3.0] - 2025-08-06
 
 ### Added
