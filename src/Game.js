@@ -114,23 +114,47 @@ export class Game {
         // Player Logic
         if (this.player.model && !this.player.isAttacking) {
             if (this.player.target) {
-                const distance = this.player.model.position.distanceTo(this.player.target.position);
-                if (distance > 1.5) { // chase range
-                    const direction = this.player.target.position.clone().sub(this.player.model.position).normalize();
-                    this.player.model.position.add(direction.multiplyScalar(0.05));
-                    
-                    const angle = Math.atan2(direction.x, direction.z);
+                if (this.player.target.userData.dying || this.player.target.userData.isDead) {
+                    this.player.target = null;
+                } else {
+                    const distance = this.player.model.position.distanceTo(this.player.target.position);
+                    if (distance > 1.5) { // chase range
+                        const direction = this.player.target.position.clone().sub(this.player.model.position).normalize();
+                        this.player.model.position.add(direction.multiplyScalar(0.05));
+
+                        const angle = Math.atan2(direction.x, direction.z);
                     this.player.model.quaternion.slerp(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), angle), 0.1);
                     this.player.setAction('run');
-                } else {
-                    this.player.attack(this.player.target);
+                    } else {
+                        this.player.attack(this.player.target);
+                    }
                 }
             } else if (this.player.targetPosition) {
                 const distance = this.player.model.position.distanceTo(this.player.targetPosition);
                 if (distance > 0.1) {
                     const direction = this.player.targetPosition.clone().sub(this.player.model.position).normalize();
-                    this.player.model.position.add(direction.multiplyScalar(0.05));
-                    
+                    const moveSpeed = 0.05;
+                    const nextPosition = this.player.model.position.clone().add(direction.clone().multiplyScalar(moveSpeed));
+
+                    let canMove = true;
+                    for (const enemy of this.enemies) {
+                        if (enemy.collider && !enemy.model.userData.dying && !enemy.model.userData.isDead) {
+                            const enemyColliderBox = new THREE.Box3().setFromObject(enemy.collider);
+                            const playerColliderBox = new THREE.Box3().setFromObject(this.player.model);
+                            playerColliderBox.min.add(direction.clone().multiplyScalar(moveSpeed));
+                            playerColliderBox.max.add(direction.clone().multiplyScalar(moveSpeed));
+
+                            if (playerColliderBox.intersectsBox(enemyColliderBox)) {
+                                canMove = false;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (canMove) {
+                        this.player.model.position.copy(nextPosition);
+                    }
+
                     const angle = Math.atan2(direction.x, direction.z);
                     this.player.model.quaternion.slerp(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), angle), 0.1);
                     
@@ -221,6 +245,13 @@ export class Game {
                 }
                 
                 if (enemy.model.userData.aiState === 'attacking') {
+                    const direction = this.player.model.position.clone().sub(enemy.model.position).normalize();
+                    let angle = Math.atan2(direction.x, direction.z);
+                    if (enemy.name === 'Slime') {
+                        angle -= Math.PI / 2;
+                    }
+                    enemy.model.quaternion.slerp(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), angle), 0.1);
+
                     const time = this.clock.getElapsedTime();
                     if (time - enemy.model.userData.lastAttackTime > enemy.model.userData.attackSpeed / 1000) {
                         enemy.model.userData.lastAttackTime = time;

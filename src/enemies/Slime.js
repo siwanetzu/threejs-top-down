@@ -10,7 +10,7 @@ export class Slime extends Enemy {
             damage: 5,
             attackSpeed: 2000,
             chaseRange: 5,
-            attackRange: 1.5,
+            attackRange: 0.5,
             xp: 10
         };
         const hitboxScale = new THREE.Vector3(4, 10, 4);

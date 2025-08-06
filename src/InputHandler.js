@@ -27,7 +27,9 @@ export class InputHandler {
         if (intersects.length > 0) {
             const intersection = intersects[0];
             if (intersection.object.userData.isEnemyHitbox) {
-                this.game.player.target = intersection.object.userData.enemy;
+                const enemy = intersection.object.userData.enemy;
+                if (enemy.userData.dying || enemy.userData.isDead) return;
+                this.game.player.target = enemy;
                 this.game.player.targetPosition = null;
                 this.game.player.attackQueued = true;
             } else if (intersection.object === this.game.floor) {
