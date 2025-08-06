@@ -79,7 +79,9 @@ This document outlines the completed milestones and the future development plan 
 - **[ ] Equipment System:**
     - Implement equippable items (weapons, shields, armor).
     - Items should modify character stats and potentially appearance.
-- **[ ] More Enemy Variety:** Introduce new enemy types with different AI, stats, and abilities (e.g., ranged attackers, magic users).
+- **[ ] Modular Enemy & Stat Expansion:**
+    - Refactor the `Enemy` class to easily support expanded stats from the GDD (e.g., resistances, special abilities, factions).
+    - Introduce new enemy types that utilize these new stats.
 - **[ ] Full Skill Implementation:** Implement the remaining combat, magic, and utility skills.
 - **[ ] Spell & Rune System:**
     - Implement the backend for the spellbook.
@@ -109,6 +111,10 @@ This document outlines the completed milestones and the future development plan 
 - **[ ] Advanced AI:** Implement more complex AI behaviors like flanking, fleeing, or using special abilities.
 - **[ ] Boss Encounters:** Design and implement multi-phase boss fights with unique mechanics.
 - **[ ] Advanced Quests:** Introduce more complex, multi-stage quests.
+- **[ ] Item Upgrading:**
+    - Implement a system for upgrading or enchanting equipment (e.g., using crafting materials at an anvil).
+- **[ ] Player Housing:**
+    - A long-term goal to implement a personal, customizable space for the player.
 - **[ ] Game Menus:** Add a main menu, pause screen, and options menu (e.g., for sound and graphics).
 - **[ ] Audio:** Integrate sound effects for combat and UI, and add background music.
 - **[ ] Game Polish:** Focus on bug fixing, performance optimization, and overall user experience improvements.
