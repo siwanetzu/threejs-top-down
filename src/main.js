@@ -61,6 +61,14 @@ enemyLoader.load('assets/Dummy.glb', (gltf) => {
     enemy.traverse(function (node) {
         if (node.isMesh) {
             node.castShadow = true;
+            // Enable transparency for fading out
+            if (Array.isArray(node.material)) {
+                node.material.forEach(mat => {
+                    mat.transparent = true;
+                });
+            } else {
+                node.material.transparent = true;
+            }
         }
     });
     scene.add(enemy);
@@ -158,10 +166,11 @@ loader.load('assets/Adventurer.glb', (gltf) => {
                 target.userData.health -= character.userData.damage;
                 showDamageNumber(character.userData.damage, target.position);
 
-                if (target.userData.health <= 0) {
-                    scene.remove(target);
-                    scene.remove(enemyHitbox);
-                    target = null;
+                if (target.userData.health <= 0 && !target.userData.dying) {
+                    target.userData.dying = true;
+                    target.userData.deathTime = clock.getElapsedTime();
+                    scene.remove(enemyHitbox); // Remove hitbox immediately
+                    target = null; // Stop targeting the dying enemy
                 }
             }
         }
@@ -290,7 +299,7 @@ function faceTarget(target) {
 }
 
 function isCollidingWithEnemy(nextPosition) {
-    if (!enemy || !enemyHitbox) return false;
+    if (!enemy || !enemyHitbox || enemy.userData.dying) return false;
 
     const enemyBoundingBox = new THREE.Box3().setFromObject(enemyHitbox);
     const characterBoundingBox = new THREE.Box3().setFromObject(character);
@@ -467,6 +476,26 @@ function animate() {
           damageNumber.element.style.left = `${(screenPosition.x + 1) / 2 * window.innerWidth}px`;
           damageNumber.element.style.top = `${(-screenPosition.y + 1) / 2 * window.innerHeight}px`;
       }
+  }
+
+  if (enemy && enemy.userData.dying) {
+    const fadeDuration = 5;
+    const elapsedTime = clock.getElapsedTime() - enemy.userData.deathTime;
+    if (elapsedTime < fadeDuration) {
+        const opacity = 1.0 - (elapsedTime / fadeDuration);
+        enemy.traverse(function (node) {
+            if (node.isMesh) {
+                if (Array.isArray(node.material)) {
+                    node.material.forEach(mat => mat.opacity = opacity);
+                } else {
+                    node.material.opacity = opacity;
+                }
+            }
+        });
+    } else {
+        scene.remove(enemy);
+        enemy = null;
+    }
   }
 
   updateHealthBars();
