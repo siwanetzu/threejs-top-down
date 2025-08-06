@@ -2,6 +2,29 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.0] - 2025-08-06
+
+### Added
+- Replaced the character cube with a full 3D animated model.
+- Implemented a basic combat system:
+  - Click-to-target and click-to-attack enemies.
+  - Character automatically moves into range to attack.
+  - Hold-to-attack functionality for continuous combat.
+- Implemented a health and damage system.
+- Added a placeholder enemy model.
+- Created a UI system for health bars for both player and enemy.
+- Added floating damage numbers on hit.
+
+### Changed
+- Swapped the placeholder enemy cube for a new "Dummy" model.
+- Refined combat logic to be more reliable.
+- Improved styling of health bars and damage numbers.
+
+### Fixed
+- Fixed numerous bugs related to character movement and attack state logic.
+- Resolved issues with raycasting and targeting after model swaps.
+- Corrected health bar and damage number positioning and styling.
+
 ## [1.1.0] - 2025-08-06
 
 ### Changed

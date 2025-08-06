@@ -17,6 +17,13 @@ This document outlines the technical design and future roadmap for our top-down 
 
 ### 2.3. UI
 - **Coordinate Display:** A real-time display of the player's `x` and `y` coordinates.
+- **Health Bars:** Both the player and enemy have UI health bars. The player's is fixed to the bottom of the screen, and the enemy's floats above their head.
+- **Damage Numbers:** Floating text appears above the enemy when they take damage.
+
+### 2.4. Combat
+- **Targeting:** Left-clicking an enemy targets them.
+- **Attacking:** The character automatically runs to a targeted enemy and attacks when in range. The player can click repeatedly or hold the mouse button to continue attacking.
+- **Health & Damage:** Characters have health and damage properties. Successful attacks reduce health.
 
 ## 3. Technical Implementation
 ### 3.1. Rendering
@@ -31,14 +38,15 @@ This document outlines the technical design and future roadmap for our top-down 
 This section is for planning future features.
 
 ### 4.1. Character
-- [ ] Replace the placeholder cube with a 3D model.
-- [ ] Implement character animations (idle, run, attack).
-- [ ] Add character stats (health, mana, etc.).
+- [x] Replace the placeholder cube with a 3D model.
+- [x] Implement character animations (idle, run, attack).
+- [x] Add character stats (health, damage).
+- [ ] Add more character stats (mana, etc.).
 
 ### 4.2. Combat
-- [ ] Implement basic attack functionality.
+- [x] Implement basic attack functionality.
 - [ ] Add enemies with simple AI (e.g., follow and attack).
-- [ ] Introduce a health and damage system.
+- [x] Introduce a health and damage system.
 
 ### 4.3. Environment
 - [ ] Add obstacles to the grid that the pathfinding algorithm must navigate around.
@@ -46,5 +54,6 @@ This section is for planning future features.
 - [ ] Add decorative elements to the scene.
 
 ### 4.4. UI
-- [ ] Create a user interface to display character information.
+- [x] Create a user interface to display character information (Health).
+- [ ] Add mana/resource bars.
 - [ ] Add a main menu and pause screen.
