@@ -18,8 +18,9 @@ export class Slime extends Enemy {
     }
 
     load() {
-        return super.load().then(() => {
-            const animations = this.model.animations;
+        return super.load().then((gltf) => {
+            this.model.rotation.y = -Math.PI / 2; // Rotate by 90 degrees
+            const animations = gltf.animations;
             const anims = {
                 idle: THREE.AnimationClip.findByName(animations, 'Armature|Slime_Idle'),
                 walk: THREE.AnimationClip.findByName(animations, 'Armature|Slime_Walk'),

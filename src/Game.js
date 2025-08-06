@@ -105,11 +105,6 @@ export class Game {
         if (this.player.mixer) {
             this.player.mixer.update(delta);
         }
-        this.enemies.forEach(enemy => {
-            if (enemy.mixer) {
-                enemy.mixer.update(delta);
-            }
-        });
 
         // Update UI
         this.uiManager.updateHealthBars(this.player.model);
@@ -150,7 +145,43 @@ export class Game {
         }
 
         // Enemy AI
-        this.enemies.forEach((enemy, index) => {
+        for (let i = this.enemies.length - 1; i >= 0; i--) {
+            const enemy = this.enemies[i];
+            if (enemy.mixer) {
+                enemy.mixer.update(delta);
+            }
+
+            if (enemy.model.userData.isDead) {
+                this.enemies.splice(i, 1);
+                this.enemyHitboxes.splice(i, 1);
+                this.enemyColliders.splice(i, 1);
+                continue;
+            }
+
+            if (enemy.model.userData.dying) {
+                if (enemy.model.userData.deathFinishTime) {
+                    const now = performance.now();
+                    const timeSinceDeath = now - enemy.model.userData.deathFinishTime;
+                    if (timeSinceDeath > 4000) { // 4 seconds
+                        const fadeDuration = 1000; // 1 second
+                        const opacity = 1 - Math.min((timeSinceDeath - 4000) / fadeDuration, 1);
+                        enemy.setOpacity(opacity);
+                        if (opacity <= 0) {
+                            enemy.model.userData.isDead = true;
+                        }
+                    }
+                }
+                continue;
+            }
+
+            if (enemy.model.userData.health <= 0 && !enemy.model.userData.dying) {
+                enemy.model.userData.dying = true;
+                enemy.setAction('death');
+                if (this.player.target === enemy.model) {
+                    this.player.target = null;
+                }
+            }
+            
             if (enemy.model && !enemy.model.userData.dying) {
                 const distanceToPlayer = enemy.model.position.distanceTo(this.player.model.position);
 
@@ -188,7 +219,18 @@ export class Game {
                     }
                 }
             }
-        });
+            
+            if (enemy.hitbox) {
+                const hitboxHeight = enemy.hitbox.geometry.parameters.height;
+                enemy.hitbox.position.copy(enemy.model.position);
+                enemy.hitbox.position.y = hitboxHeight / 2;
+            }
+            if (enemy.collider) {
+                const colliderHeight = enemy.collider.geometry.parameters.height;
+                enemy.collider.position.copy(enemy.model.position);
+                enemy.collider.position.y = colliderHeight / 2;
+            }
+        }
 
         this.renderer.render(this.scene, this.camera);
     }

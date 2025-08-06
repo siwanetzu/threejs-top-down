@@ -94,6 +94,13 @@ export class Player {
         if (now - this.lastAttackTime < this.attackSpeed) return;
 
         this.lastAttackTime = now;
+
+        if (target) {
+            const direction = target.position.clone().sub(this.model.position).normalize();
+            const angle = Math.atan2(direction.x, direction.z);
+            this.model.quaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), angle);
+        }
+
         const attackAction = this.useLeftPunch ? 'punch_left' : 'punch_right';
         this.setAction(attackAction);
         this.useLeftPunch = !this.useLeftPunch;

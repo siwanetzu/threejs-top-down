@@ -45,11 +45,13 @@ export class Enemy {
                     const clipName = e.action.getClip().name;
                     if (clipName.includes('Attack')) {
                         this.setAction('idle');
+                    } else if (clipName.includes('Death')) {
+                        this.model.userData.deathFinishTime = performance.now();
                     }
                 });
 
                 this._createHitboxes();
-                resolve();
+                resolve(gltf);
             }, undefined, reject);
         });
     }
@@ -103,5 +105,17 @@ export class Enemy {
             previousAction.crossFadeTo(action, 0.2, true);
         }
         action.play();
+    }
+
+    setOpacity(opacity) {
+        this.model.traverse((node) => {
+            if (node.isMesh) {
+                if (Array.isArray(node.material)) {
+                    node.material.forEach(mat => mat.opacity = opacity);
+                } else {
+                    node.material.opacity = opacity;
+                }
+            }
+        });
     }
 }
