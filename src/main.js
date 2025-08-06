@@ -44,6 +44,9 @@ scene.add(floor);
 // Character
 let character;
 let mixer;
+let actions = {};
+let activeAction;
+let characterState = 'idle'; // State machine: 'idle', 'run'
 const clock = new THREE.Clock();
 
 const loader = new GLTFLoader();
@@ -60,18 +63,34 @@ loader.load('assets/Adventurer idle.glb', (gltf) => {
     scene.add(character);
 
     mixer = new THREE.AnimationMixer(character);
-    const clips = gltf.animations;
-    const idleClip = THREE.AnimationClip.findByName(clips, 'Idle');
+    
+    const animations = gltf.animations;
+    console.log('Available animations:', gltf.animations.map(a => a.name));
+    
+    const idleClip = THREE.AnimationClip.findByName(animations, 'CharacterArmature|Idle');
     if (idleClip) {
-        const idleAction = mixer.clipAction(idleClip);
-        idleAction.play();
+        actions['idle'] = mixer.clipAction(idleClip);
+        activeAction = actions['idle'];
+        activeAction.play();
+    } else {
+        console.error("Animation 'Idle' not found in the GLB file.");
+    }
+
+    const runClip = THREE.AnimationClip.findByName(animations, 'CharacterArmature|Run');
+    if (runClip) {
+        actions['run'] = mixer.clipAction(runClip);
+    } else {
+        // It's possible the run animation is named differently or not present.
+        // We will log this but not crash.
+        console.warn("Animation 'Run' not found in the GLB file.");
     }
 }, undefined, (error) => {
-    console.error(error);
+    console.error("Error loading model:", error);
 });
 
 
 let targetPosition = null;
+let targetRotation = null;
 
 // Mouse click to move
 const raycaster = new THREE.Raycaster();
@@ -123,6 +142,28 @@ window.addEventListener('mouseup', (event) => {
     }
 });
 
+function setAction(name) {
+    if (characterState === name || !actions[name]) {
+        return;
+    }
+
+    const previousAction = activeAction;
+    activeAction = actions[name];
+
+    if (previousAction) {
+        previousAction.fadeOut(0.2);
+    }
+
+    activeAction
+        .reset()
+        .setEffectiveTimeScale(1)
+        .setEffectiveWeight(1)
+        .fadeIn(0.2)
+        .play();
+
+    characterState = name;
+}
+
 // Animation loop
 function animate() {
   requestAnimationFrame(animate);
@@ -136,12 +177,23 @@ function animate() {
   if (character && targetPosition) {
     const distance = character.position.distanceTo(targetPosition);
     if (distance > speed) {
+      setAction('run');
       const direction = targetPosition.clone().sub(character.position).normalize();
       character.position.add(direction.multiplyScalar(speed));
+
+      // Rotate character to face direction of movement
+      const angle = Math.atan2(direction.x, direction.z);
+      targetRotation = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), angle);
     } else {
       character.position.copy(targetPosition);
       targetPosition = null;
     }
+  } else {
+      setAction('idle');
+  }
+
+  if (character && targetRotation) {
+    character.quaternion.slerp(targetRotation, 0.1);
   }
 
   if (character) {
