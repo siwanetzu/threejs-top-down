@@ -96,22 +96,6 @@ export class Game {
         }
     }
 
-    setEnemyAction(enemy, name) {
-        if (enemy.model.userData.aiState === name) {
-            return;
-        }
-
-        const action = enemy.actions[name];
-        if (action) {
-            if (enemy.activeAction) {
-                enemy.activeAction.stop();
-            }
-            action.play();
-            enemy.activeAction = action;
-            enemy.model.userData.aiState = name;
-        }
-    }
-
     animate() {
         requestAnimationFrame(this.animate.bind(this));
         const delta = this.clock.getDelta();
@@ -174,7 +158,7 @@ export class Game {
                     enemy.model.userData.aiState = 'chasing';
                 } else {
                     enemy.model.userData.aiState = 'idle';
-                    this.setEnemyAction(enemy, 'idle');
+                    enemy.setAction('idle');
                 }
 
                 if (enemy.model.userData.aiState === 'chasing') {
@@ -187,10 +171,9 @@ export class Game {
                             angle -= Math.PI / 2;
                         }
                         enemy.model.quaternion.slerp(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), angle), 0.1);
-                        this.setEnemyAction(enemy, 'walk');
+                        enemy.setAction('walk');
                     } else {
                         enemy.model.userData.aiState = 'attacking';
-                        this.setEnemyAction(enemy, 'idle');
                     }
                 }
                 
@@ -198,8 +181,10 @@ export class Game {
                     const time = this.clock.getElapsedTime();
                     if (time - enemy.model.userData.lastAttackTime > enemy.model.userData.attackSpeed / 1000) {
                         enemy.model.userData.lastAttackTime = time;
-                        this.setEnemyAction(enemy, 'attack');
+                        enemy.setAction('attack');
                         this.player.model.userData.health -= enemy.model.userData.damage;
+                    } else {
+                        enemy.setAction('idle');
                     }
                 }
             }
