@@ -10,12 +10,12 @@ scene.background = new THREE.Color(0x87CEEB);
 
 // Camera
 const aspect = window.innerWidth / window.innerHeight;
-const d = 10;
+const d = 7;
 const camera = new THREE.OrthographicCamera(-d * aspect, d * aspect, d, -d, 1, 1000);
 camera.position.set(10, 10, 10); // Angled isometric view
 camera.lookAt(scene.position);
 
-// Renderer
+// webgl for rendering
 const renderer = new THREE.WebGLRenderer({
   canvas: document.querySelector('#bg'),
   antialias: true
@@ -24,16 +24,22 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(window.devicePixelRatio);
 renderer.shadowMap.enabled = true;
 
-// Lighting
+// lighting
 const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
 scene.add(ambientLight);
 
 const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
 directionalLight.position.set(10, 10, 5);
 directionalLight.castShadow = true;
+directionalLight.shadow.camera.left = -15;
+directionalLight.shadow.camera.right = 15;
+directionalLight.shadow.camera.top = 15;
+directionalLight.shadow.camera.bottom = -15;
+directionalLight.shadow.camera.near = 0.5;
+directionalLight.shadow.camera.far = 50;
 scene.add(directionalLight);
 
-// Floor
+// Building floor
 const floorGeometry = new THREE.PlaneGeometry(24, 24);
 const floorMaterial = new THREE.MeshStandardMaterial({ color: 0x228B22 });
 const floor = new THREE.Mesh(floorGeometry, floorMaterial);
@@ -41,16 +47,17 @@ floor.rotation.x = -Math.PI / 2;
 floor.receiveShadow = true;
 scene.add(floor);
 
-// Character
+// Main character
 let character;
 let mixer;
 let actions = {};
 let activeAction;
-let characterState = 'idle'; // State machine: 'idle', 'run'
+let characterState = 'idle'; // easy state machine for 'idle', 'run'
 const clock = new THREE.Clock();
 
+// Loading the character model from the glb file
 const loader = new GLTFLoader();
-loader.load('assets/Adventurer idle.glb', (gltf) => {
+loader.load('assets/Adventurer.glb', (gltf) => {
     character = gltf.scene;
     character.scale.set(0.5, 0.5, 0.5);
     character.position.y = 0;
