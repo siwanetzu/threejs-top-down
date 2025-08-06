@@ -88,9 +88,35 @@ export class Game {
         this.scene.add(this.floor);
     }
 
+    _updateCamera() {
+        if (this.player.model) {
+            const offset = new THREE.Vector3(0, 10, 10);
+            this.camera.position.copy(this.player.model.position).add(offset);
+            this.camera.lookAt(this.player.model.position);
+        }
+    }
+
+    setEnemyAction(enemy, name) {
+        if (enemy.model.userData.aiState === name) {
+            return;
+        }
+
+        const action = enemy.actions[name];
+        if (action) {
+            if (enemy.activeAction) {
+                enemy.activeAction.stop();
+            }
+            action.play();
+            enemy.activeAction = action;
+            enemy.model.userData.aiState = name;
+        }
+    }
+
     animate() {
         requestAnimationFrame(this.animate.bind(this));
         const delta = this.clock.getDelta();
+
+        this._updateCamera();
 
         if (this.player.mixer) {
             this.player.mixer.update(delta);
@@ -107,12 +133,23 @@ export class Game {
         this.uiManager.updateDamageNumbers(this.camera);
 
         // Player Logic
-        if (this.player.model) {
-            if (this.player.targetPosition) {
-                const direction = this.player.targetPosition.clone().sub(this.player.model.position).normalize();
+        if (this.player.model && !this.player.isAttacking) {
+            if (this.player.target) {
+                const distance = this.player.model.position.distanceTo(this.player.target.position);
+                if (distance > 1.5) { // chase range
+                    const direction = this.player.target.position.clone().sub(this.player.model.position).normalize();
+                    this.player.model.position.add(direction.multiplyScalar(0.05));
+                    
+                    const angle = Math.atan2(direction.x, direction.z);
+                    this.player.model.quaternion.slerp(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), angle), 0.1);
+                    this.player.setAction('run');
+                } else {
+                    this.player.attack(this.player.target);
+                }
+            } else if (this.player.targetPosition) {
                 const distance = this.player.model.position.distanceTo(this.player.targetPosition);
-
                 if (distance > 0.1) {
+                    const direction = this.player.targetPosition.clone().sub(this.player.model.position).normalize();
                     this.player.model.position.add(direction.multiplyScalar(0.05));
                     
                     const angle = Math.atan2(direction.x, direction.z);
@@ -123,6 +160,8 @@ export class Game {
                     this.player.targetPosition = null;
                     this.player.setAction('idle');
                 }
+            } else {
+                this.player.setAction('idle');
             }
         }
 
@@ -133,6 +172,9 @@ export class Game {
 
                 if (distanceToPlayer <= enemy.model.userData.chaseRange) {
                     enemy.model.userData.aiState = 'chasing';
+                } else {
+                    enemy.model.userData.aiState = 'idle';
+                    this.setEnemyAction(enemy, 'idle');
                 }
 
                 if (enemy.model.userData.aiState === 'chasing') {
@@ -140,10 +182,15 @@ export class Game {
                         const direction = this.player.model.position.clone().sub(enemy.model.position).normalize();
                         enemy.model.position.add(direction.multiplyScalar(0.05));
                         
-                        const angle = Math.atan2(direction.x, direction.z);
+                        let angle = Math.atan2(direction.x, direction.z);
+                        if (enemy.name === 'Slime') {
+                            angle -= Math.PI / 2;
+                        }
                         enemy.model.quaternion.slerp(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), angle), 0.1);
+                        this.setEnemyAction(enemy, 'walk');
                     } else {
                         enemy.model.userData.aiState = 'attacking';
+                        this.setEnemyAction(enemy, 'idle');
                     }
                 }
                 
@@ -151,10 +198,8 @@ export class Game {
                     const time = this.clock.getElapsedTime();
                     if (time - enemy.model.userData.lastAttackTime > enemy.model.userData.attackSpeed / 1000) {
                         enemy.model.userData.lastAttackTime = time;
-                        if (enemy.model.userData.actions.attack) {
-                            enemy.model.userData.actions.attack.reset().play();
-                            this.player.model.userData.health -= enemy.model.userData.damage;
-                        }
+                        this.setEnemyAction(enemy, 'attack');
+                        this.player.model.userData.health -= enemy.model.userData.damage;
                     }
                 }
             }

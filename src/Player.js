@@ -12,6 +12,8 @@ export class Player {
         this.isAttacking = false;
         this.useLeftPunch = true;
         this.attackQueued = false;
+        this.lastAttackTime = 0;
+        this.attackSpeed = 1000; // ms
     }
 
     load() {
@@ -42,18 +44,62 @@ export class Player {
                 this.activeAction = this.actions['idle'];
                 this.activeAction.play();
 
+                this.mixer.addEventListener('finished', (e) => {
+                    const clipName = e.action.getClip().name;
+                    if (clipName.includes('Punch')) {
+                        this.isAttacking = false;
+                        if (this.state !== 'run') {
+                            this.setAction('idle');
+                        }
+                    }
+                });
+
                 resolve();
             }, undefined, reject);
         });
     }
 
     setAction(name) {
-        if (this.activeAction?.name === name) return;
-        const action = this.actions[name];
-        if (action) {
-            this.activeAction.crossFadeTo(action, 0.2, true);
-            action.play();
-            this.activeAction = action;
+        if (this.state === name || !this.actions[name]) {
+            return;
+        }
+
+        const previousAction = this.activeAction;
+        this.activeAction = this.actions[name];
+        this.state = name;
+
+        if (previousAction && previousAction !== this.activeAction) {
+            previousAction.fadeOut(0.2);
+        }
+
+        this.activeAction
+            .reset()
+            .setEffectiveTimeScale(1)
+            .setEffectiveWeight(1)
+            .fadeIn(0.2)
+            .play();
+
+        if (name.includes('punch')) {
+            this.activeAction.setLoop(THREE.LoopOnce);
+            this.activeAction.clampWhenFinished = true;
+            this.isAttacking = true;
+        } else {
+            this.activeAction.setLoop(THREE.LoopRepeat);
+        }
+    }
+
+    attack(target) {
+        const now = performance.now();
+        if (now - this.lastAttackTime < this.attackSpeed) return;
+
+        this.lastAttackTime = now;
+        const attackAction = this.useLeftPunch ? 'punch_left' : 'punch_right';
+        this.setAction(attackAction);
+        this.useLeftPunch = !this.useLeftPunch;
+
+        if (target && target.userData) {
+            target.userData.health -= this.model.userData.damage;
+            console.log(`${target.userData.name} health: ${target.userData.health}`);
         }
     }
 }

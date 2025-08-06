@@ -41,6 +41,13 @@ export class Enemy {
                 this.mixer = new THREE.AnimationMixer(this.model);
                 this.model.userData.mixer = this.mixer;
 
+                this.mixer.addEventListener('finished', (e) => {
+                    const clipName = e.action.getClip().name;
+                    if (clipName.includes('Attack')) {
+                        this.setAction('idle');
+                    }
+                });
+
                 this._createHitboxes();
                 resolve();
             }, undefined, reject);
@@ -68,5 +75,33 @@ export class Enemy {
         this.collider.position.copy(this.model.position);
         this.collider.position.y += colliderBoxSize.y / 2;
         this.scene.add(this.collider);
+    }
+    setAction(name) {
+        const userData = this.model.userData;
+        if (userData.aiState === name) return;
+
+        const action = userData.actions[name];
+        if (!action) {
+            console.warn(`Action '${name}' not found for ${this.name}`);
+            return;
+        }
+
+        const previousAction = userData.activeAction;
+        userData.activeAction = action;
+        userData.aiState = name;
+
+        action.reset();
+
+        if (name === 'attack' || name === 'death') {
+            action.setLoop(THREE.LoopOnce);
+            action.clampWhenFinished = true;
+        } else {
+            action.setLoop(THREE.LoopRepeat);
+        }
+        
+        if (previousAction) {
+            previousAction.crossFadeTo(action, 0.2, true);
+        }
+        action.play();
     }
 }
