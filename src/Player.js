@@ -89,6 +89,24 @@ export class Player {
         }
     }
 
+    cancelAction = () => {
+        this.isAttacking = false;
+        this.isCasting = false;
+        this.isMoving = false;
+        this.target = null;
+        this.targetPosition = null;
+        this.attackQueued = false;
+        this.setAction('idle');
+    }
+
+    lookAt = (point) => {
+        if (this.model) {
+            const direction = point.clone().sub(this.model.position).normalize();
+            const angle = Math.atan2(direction.x, direction.z);
+            this.model.quaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), angle);
+        }
+    }
+
     attack(target) {
         const now = performance.now();
         if (now - this.lastAttackTime < this.attackSpeed) return;

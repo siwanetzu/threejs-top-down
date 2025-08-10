@@ -6,36 +6,52 @@ This document outlines the completed milestones and the future development plan 
 ## Completed Milestones
 
 ### Version 2.0.1
-- **Fixed:** Corrected a bug with the click-to-move functionality to better distinguish between "click" and "drag" actions.
+- **Fixed: Distinguishing "Click" vs. "Drag"**
+  - The `InputHandler` was refined to more accurately differentiate between a single click action (for targeting or point-and-click movement) and a mouse drag action (for continuous movement).
+  - This was achieved by implementing a `dragThreshold`, which measures the pixel distance the cursor moves between `mousedown` and `mouseup` events. If the distance exceeds the threshold, the action is considered a drag, preventing an attack from being queued unintentionally when the player intends to move.
 
 ### Version 2.0.0
-- **Changed:** Major refactor to a modular, class-based architecture (`Game`, `Player`, `Enemy`, `UIManager`, `InputHandler`).
+- **Changed: Modular, Class-Based Architecture**
+  - The entire codebase was refactored from a single-file or script-based approach into a modular, object-oriented structure. This established the core architectural pattern for the game.
+  - **`Game.js`**: Acts as the central orchestrator, managing the main game loop (`animate`), scene setup, camera, lighting, and the instantiation of other core modules. It also holds the collections of `enemies` and their colliders.
+  - **`Player.js`**: Encapsulates all player-specific logic, including loading the 3D model (`Adventurer.glb`), managing animations (idle, run, punch), handling state (`isAttacking`), and defining combat logic (`attack` method).
+  - **`Enemy.js`**: A base class for all enemy types, handling common functionality like model loading, animation management, stat initialization, and the creation of `hitbox` and `collider` objects for interaction.
+  - **`UIManager.js`**: Manages all interactions with the HTML/CSS-based user interface. This includes updating health/mana bars, displaying target information, and rendering floating damage numbers in the 3D space.
+  - **`InputHandler.js`**: Centralizes all user input handling (mouse clicks and movement). It uses a `Raycaster` to determine interactions with the game world (floor, enemies) and communicates the player's intent (e.g., `targetPosition`, `target`) to the `Game` and `Player` classes.
 
 ### Version 1.3.0
-- **Added:** "Slime" enemy and a multi-enemy management system.
-- **Changed:** Updated AI and targeting for multiple enemies.
+- **Added: "Slime" Enemy & Multi-Enemy System**
+  - A new `Slime.js` class was created, inheriting from the base `Enemy` class. This introduced a second, distinct enemy type with its own 3D model and stats.
+  - The `Game.js` class was updated to manage an array of enemies (`this.enemies`), allowing for multiple, independent enemies to exist and be processed in the game loop.
+- **Changed: AI and Targeting for Multiple Enemies**
+  - The player's targeting system was updated to handle a collection of potential targets. The `InputHandler` now intersects with an array of `enemyHitboxes`.
+  - The enemy AI loop in `Game.js` iterates through all active enemies, updating their state, movement, and attacks independently.
 
 ### Version 1.2.0
-- **Added:**
-  - 3D animated player model.
-  - Basic combat system (click-to-target/attack, auto-move).
-  - Health, damage, and mana systems.
-  - "Dummy" enemy model.
-  - UI for health/mana bars and floating damage numbers.
-  - Basic enemy AI (chase/attack).
-- **Changed:** Improved combat logic and UI styling.
-- **Fixed:** Numerous bugs related to movement, state, and targeting.
+- **Added: Core Gameplay Mechanics**
+  - **3D Animated Player Model:** The player is now represented by the `Adventurer.glb` model with multiple animations managed by a `THREE.AnimationMixer` in `Player.js`.
+  - **Basic Combat System:**
+    - **Click-to-Target/Attack:** `InputHandler` detects clicks on enemy hitboxes, setting the `player.target`.
+    - **Auto-Move:** If the player has a target but is out of range, the `Game.js` loop implements a chase behavior, moving the player towards the target until they are within attack range.
+  - **Health, Damage, and Mana Systems:** The `Player` and `Enemy` classes now have `userData` objects storing core stats like `health`, `maxHealth`, `mana`, `maxMana`, and `damage`. These values are used in combat calculations.
+  - **"Dummy" Enemy Model:** The initial `Dummy.js` enemy was created as a basic combat target.
+  - **UI for Health/Mana & Damage Numbers:** `UIManager.js` was created to bridge the gap between game state and the HTML UI. It updates the player's health/mana bars and renders floating damage numbers at the target's position when an attack lands.
+  - **Basic Enemy AI (Chase/Attack):** The `Game.js` loop contains the initial AI logic. Enemies have a `chaseRange` and `attackRange`. They remain idle until the player enters their chase range, then move towards the player. If the player is within attack range, the enemy enters an `attacking` state.
+- **Changed:** The combat logic was improved to be more state-driven (e.g., `isAttacking` flag to prevent action interruption).
 
 ### Version 1.1.0
-- **Changed:** Replaced grid-based movement with free-form, "hold-to-move" functionality.
-- **Removed:** A* pathfinding and visual grid.
+- **Changed: Free-Form "Hold-to-Move"**
+  - The movement system was fundamentally changed. The `InputHandler` now detects if the mouse is being held down and dragged.
+  - If dragging, it continuously raycasts against the floor mesh to get a `targetPosition`. The `Game.js` loop then moves the player model towards this position each frame, creating smooth, free-form movement.
+- **Removed: A* Pathfinding and Grid**
+  - With the move to a free-form system, the underlying grid, the `A*` pathfinding algorithm, and any related visual grid representations were removed from the project.
 
 ### Version 1.0.0
-- **Added:**
-  - Initial project setup (Vite, Three.js).
-  - Top-down orthographic camera.
-  - Basic lighting, floor, and character representation.
-  - A* pathfinding and grid-based movement.
+- **Added: Initial Project Foundation**
+  - **Project Setup:** The project was initialized using Vite, providing a modern build setup and development server. `Three.js` was integrated as the core 3D rendering library.
+  - **Top-Down Orthographic Camera:** A non-perspective `OrthographicCamera` was configured and positioned to create the classic top-down view.
+  - **Basic Scene:** The initial scene was set up with `AmbientLight` and `DirectionalLight` for illumination, a basic `PlaneGeometry` for the floor, and a simple cube or placeholder for the character.
+  - **A* Pathfinding and Grid-Based Movement:** The first version of movement was based on a discrete grid. An A* pathfinding algorithm was implemented to calculate the path from the player's current position to a clicked destination tile.
 
 ---
 
